@@ -9,5 +9,5 @@ pydantic
 neo4j
 pdfplumber
 gmft
-pdf2image
 paddlepaddle
+pymupdf
