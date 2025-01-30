@@ -6,6 +6,7 @@ langchain_ollama
 langchain_chroma
 langgraph
 pydantic
+pymongo
 neo4j
 pdfplumber
 gmft

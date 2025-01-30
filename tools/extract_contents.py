@@ -4,10 +4,12 @@ import argparse
 from pathlib import Path
 
 import fitz
-from gmft.auto import AutoTableDetector, AutoTableFormatter
-from gmft.pdf_bindings import PyPDFium2Document
 
-from src.pdf_helper.content_extractor import chunk_pages
+from src.pdf_helper.content_extractor import chunk_layout_contents, parse_box_contents
+from src.pdf_helper.content_linker import process_document_relationships
+from src.pdf_helper.layout_extractor import LayoutExtractor, PaddleX17Cls
+from src.utils.image import fitz_page_to_image_array
+from src.utils.visualize import visualize_pdf_contents
 
 
 def parse_args():
@@ -28,47 +30,38 @@ def parse_args():
 
 def main():
     args = parse_args()
-    detector = AutoTableDetector()
-    output_dir = Path(args.output_dir) / Path(args.pdf_path).stem
-    output_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = Path(args.pdf_path)
+    output_dir = Path(args.output_dir) / pdf_path.stem
 
-    doc = PyPDFium2Document(args.pdf_path)
-    tables_per_page = []
-    for page in doc:
-        tables_per_page.append(detector.extract(page))
+    doc = fitz.open(pdf_path)
+    images = [fitz_page_to_image_array(page) for page in doc]
+    layout_extractor = LayoutExtractor()
+    output = layout_extractor.extract_layout(
+        images, list(range(1, len(images) + 1)), batch_size=2
+    )
 
-    doc = fitz.open(args.pdf_path)
-    toc = doc.get_toc()
+    page = doc[0]
+    content_list = []
 
-    # get all chunks
-    all_chunks = chunk_pages(doc, tables_per_page)
-    for i, chunk in enumerate(all_chunks):
-        with open(output_dir / f"chunk_{i:03d}.txt", "w") as f:
-            f.write(chunk)
+    for page_num, res in enumerate(output):
+        page = doc[page_num]
+        pdf_width, pdf_height = page.rect.width, page.rect.height
+        img_width, img_height = res.image_size
+        w_scale = pdf_width / img_width
+        h_scale = pdf_height / img_height
+        for box in res.boxes:
+            content = parse_box_contents(page, box, w_scale, h_scale)
+            content_list.append(content)
 
-    # get chunks for each section
-    lvl_1_chunks = []
-    lvl_1_toc = [i for i in toc if i[0] == 1]
-
-    # assume that there is no duplication in page_num in lvl_1_toc
-    for i, (lvl_1, title, page_num) in enumerate(lvl_1_toc):
-        start_page = page_num
-        if i + 1 < len(lvl_1_toc):
-            end_page = lvl_1_toc[i + 1][2]
-        else:
-            end_page = len(doc)
-
-        lvl_1_chunks.append(
-            chunk_pages(
-                doc[start_page - 1 : end_page],
-                tables_per_page[start_page - 1 : end_page],
-                chunk_size=1000_1000,
-            )
-        )
-    for lvl, chunks in enumerate(lvl_1_chunks):
-        for i, chunk in enumerate(chunks):
-            with open(output_dir / f"lvl_1_chunk_{lvl:02d}_{i:02d}.txt", "w") as f:
-                f.write(chunk)
+    content_list = process_document_relationships(content_list)
+    chunks = chunk_layout_contents(
+        content_list,
+        content_filter_func=lambda x: x.cls_id != PaddleX17Cls.number,
+        overlap_boxes=1,
+    )
+    visualize_pdf_contents(
+        pdf_path, content_list, chunks, output_dir / "visualized_pdf.pdf"
+    )
 
 
 if __name__ == "__main__":

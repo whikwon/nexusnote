@@ -9,7 +9,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 
 from src.pdf_helper.layout_extractor import PaddleX17Cls, PaddleXBox
-from src.utils import pil_to_base64
+from src.utils.image import pil_to_base64
 
 
 class ChunkMetaData(BaseModel):
@@ -99,28 +99,47 @@ def parse_box_contents(
 
 def chunk_layout_contents(
     content_list: List[EnrichedPaddleXBoxContent],
-    max_boxes_per_chunk: int = 20,
-    overlap_boxes: int = 3,
+    content_filter_func=None,
+    max_chunk_size: int = 10_000,  # Maximum characters per chunk
+    overlap_boxes: int = 1,
 ) -> List[langchain_Document]:
     """
     Creates chunks from layout-extracted PDF content, preserving layout structure
-    and UUIDs for traceability. Chunks are created based on number of content boxes
-    rather than character count.
+    and UUIDs for traceability. Chunks are created based on character count
+    rather than number of boxes.
 
     Args:
         content_list (List[EnrichedContent]): List of enriched content with UUIDs
-        max_boxes_per_chunk (int): Maximum number of content boxes per chunk
+        content_filter_func: Optional function to filter content
+        max_chunk_size (int): Maximum number of characters per chunk
         overlap_boxes (int): Number of content boxes to overlap between chunks
+
     Returns:
         List[langchain_Document]: List of document chunks with metadata including UUIDs
     """
     chunks = []
     current_boxes: List[EnrichedPaddleXBoxContent] = []
+    current_size: int = 0
     current_pages: Set[int] = set()
     current_uuids: Set[str] = set()
 
+    if content_filter_func is not None:
+        content_list = [
+            content for content in content_list if content_filter_func(content)
+        ]
+
     # Sort content by page number and vertical position (bbox[1])
     sorted_contents = sorted(content_list, key=lambda x: (x.page_number, x.bbox[1]))
+
+    def get_box_size(box: EnrichedPaddleXBoxContent) -> int:
+        if box.image is not None:
+            # Apply a weight factor to image size since base64 is verbose
+            # Decode base64 to get actual image size in bytes
+            import base64
+
+            image_bytes = base64.b64decode(box.image)
+            return len(image_bytes) // 4  # Adjust weight factor as needed
+        return len(box.text.strip()) if box.text else 0
 
     def create_chunk_text(boxes: List[EnrichedPaddleXBoxContent]) -> str:
         """Helper function to create chunk text from content boxes"""
@@ -171,19 +190,30 @@ def chunk_layout_contents(
 
     # Process content boxes into chunks
     for content in sorted_contents:
-        current_boxes.append(content)
-        current_pages.add(content.page_number)
-        current_uuids.add(content.id)
+        box_size = get_box_size(content)
 
-        # Check if we've reached the maximum boxes per chunk
-        if len(current_boxes) >= max_boxes_per_chunk:
+        # If adding this box would exceed the chunk size, create a new chunk
+        if current_size + box_size > max_chunk_size and current_boxes:
             # Create chunk
             chunks.append(create_chunk_document(current_boxes))
 
             # Keep overlap boxes for next chunk
-            current_boxes = current_boxes[-overlap_boxes:]
-            current_pages = {box.page_number for box in current_boxes}
-            current_uuids = {box.id for box in current_boxes}
+            if overlap_boxes > 0:
+                current_boxes = current_boxes[-overlap_boxes:]
+                current_size = sum(get_box_size(box) for box in current_boxes)
+                current_pages = {box.page_number for box in current_boxes}
+                current_uuids = {box.id for box in current_boxes}
+            else:
+                current_boxes = []
+                current_size = 0
+                current_pages = set()
+                current_uuids = set()
+
+        # Add current content
+        current_boxes.append(content)
+        current_size += box_size
+        current_pages.add(content.page_number)
+        current_uuids.add(content.id)
 
     # Add final chunk if there are remaining boxes
     if current_boxes:
