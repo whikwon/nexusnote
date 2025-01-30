@@ -32,6 +32,7 @@ def main():
     args = parse_args()
     pdf_path = Path(args.pdf_path)
     output_dir = Path(args.output_dir) / pdf_path.stem
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     doc = fitz.open(pdf_path)
     images = [fitz_page_to_image_array(page) for page in doc]
@@ -56,7 +57,14 @@ def main():
     content_list = process_document_relationships(content_list)
     chunks = chunk_layout_contents(
         content_list,
-        content_filter_func=lambda x: x.cls_id != PaddleX17Cls.number,
+        content_filter_func=lambda x: x.cls_id
+        not in [
+            PaddleX17Cls.number,
+            PaddleX17Cls.picture,
+            PaddleX17Cls.table,
+            PaddleX17Cls.algorithm,
+            PaddleX17Cls.formula,
+        ],
         overlap_boxes=1,
     )
     visualize_pdf_contents(
