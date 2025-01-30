@@ -85,7 +85,7 @@ def parse_box_contents(
         blocks = page.get_text("dict", clip=bbox)
         for block in blocks["blocks"]:
             block_text = []
-            if "line" not in block:
+            if "lines" not in block:
                 continue
             for line in block["lines"]:
                 line_text = ""
@@ -102,7 +102,7 @@ def parse_box_contents(
 def chunk_layout_contents(
     content_list: List[EnrichedPaddleXBoxContent],
     content_filter_func=None,
-    max_chunk_size: int = 1_000,  # Maximum characters per chunk
+    max_chunk_size: int = 5_000,  # Maximum characters per chunk
     overlap_boxes: int = 1,
 ) -> List[langchain_Document]:
     """
