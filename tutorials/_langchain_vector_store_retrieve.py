@@ -1,17 +1,19 @@
 import argparse
 import os
 from functools import partial
-from typing_extensions import List, TypedDict, Union
 
+import lancedb
 from dotenv import load_dotenv
+from typing_extensions import List, TypedDict, Union
 
 load_dotenv(os.path.expanduser("~/.env"))
 
 from langchain import hub
-from langchain_core.documents import Document
-from langchain_ollama import OllamaLLM, OllamaEmbeddings
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.vectorstores import LanceDB
+from langchain_core.documents import Document
+from langchain_ollama import OllamaEmbeddings, OllamaLLM
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.graph import START, StateGraph
 
 
@@ -21,11 +23,12 @@ class State(TypedDict):
     answer: str
 
 
-def retrieve(state: State, vector_store: Chroma):
-    # filter: metadata filtering
-    retrieved_docs = vector_store.similarity_search(
-        state["question"], filter={"start_index": {"$gte": 0}}
-    )
+def retrieve(state: State, vector_store: Union[Chroma | LanceDB]):
+    if isinstance(vector_store, Chroma):
+        filter = {"start_index": {"$gt": 0}}
+    elif isinstance(vector_store, LanceDB):
+        filter = "metadata.start_index > 0"
+    retrieved_docs = vector_store.similarity_search(state["question"], filter)
     print(retrieved_docs)
     return {"context": retrieved_docs}
 
@@ -48,10 +51,10 @@ def parse_args():
         help="The model to use for the LLM and embeddings.",
     )
     parser.add_argument(
-        "--collection_name",
+        "--db_type",
         type=str,
-        default="ai_papers",
-        help="The collection name for the vector store.",
+        default="lancedb",
+        help="The type of database to use for the vector store.",
     )
     parser.add_argument(
         "--question",
@@ -71,11 +74,15 @@ def main():
         llm = OllamaLLM(model=args.model)
         embeddings = OllamaEmbeddings(model=args.model)
 
-    vector_store = Chroma(
-        embedding_function=embeddings,
-        collection_name="ai_papers",
-        persist_directory="./chroma_langchain_db",  # Where to save data locally, remove if not necessary
-    )
+    if args.db_type == "lancedb":
+        db = lancedb.connect("db/lancedb")
+        vector_store = LanceDB(connection=db, embedding=embeddings)
+    elif args.db_type == "chroma":
+        vector_store = Chroma(
+            embedding_function=embeddings,
+            collection_name="examples",
+            persist_directory="db/chroma_langchain_db",
+        )
 
     prompt = hub.pull("rlm/rag-prompt")  # RAG 관련 prompt
 

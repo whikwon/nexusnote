@@ -4,9 +4,10 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv(os.path.expanduser("~/.env"))
-
+import lancedb
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PDFMinerLoader
+from langchain_community.vectorstores import LanceDB
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -23,10 +24,10 @@ def parse_args():
         help="The model to use for the LLM and embeddings.",
     )
     parser.add_argument(
-        "--collection_name",
+        "--db_type",
         type=str,
-        default="ai_papers",
-        help="The collection name for the vector store.",
+        default="lancedb",
+        help="The type of database to use for the vector store.",
     )
     parser.add_argument(
         "--pdf_path",
@@ -44,11 +45,15 @@ def main():
         embeddings = OpenAIEmbeddings(model=args.model)
     else:
         embeddings = OllamaEmbeddings(model=args.model)
-    vector_store = Chroma(
-        embedding_function=embeddings,
-        collection_name=args.collection_name,
-        persist_directory="./chroma_langchain_db",  # Where to save data locally, remove if not necessary
-    )
+    if args.db_type == "lancedb":
+        db = lancedb.connect("db/lancedb")
+        vector_store = LanceDB(connection=db, embedding=embeddings)
+    elif args.db_type == "chroma":
+        vector_store = Chroma(
+            embedding_function=embeddings,
+            collection_name="examples",
+            persist_directory="./chroma_langchain_db",  # Where to save data locally, remove if not necessary
+        )
 
     # Only keep post title, headers, and content from the full HTML.
     loader = PDFMinerLoader(args.pdf_path)
@@ -59,8 +64,11 @@ def main():
         chunk_overlap=200,  # chunk overlap (characters)
         add_start_index=True,  # track index in original document
     )
+    print("Splitting documents...")
     all_splits = text_splitter.split_documents(docs)
+    print("Adding documents to vector store...")
     document_ids = vector_store.add_documents(documents=all_splits)
+    print(f"Added documents to vector store: {document_ids}.")
 
 
 if __name__ == "__main__":
