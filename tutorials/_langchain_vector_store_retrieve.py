@@ -62,6 +62,10 @@ def parse_args():
         default="What is the Titans paper about?",
         help="The question to ask the model.",
     )
+    parser.add_argument(
+        "--use_langgraph",
+        action="store_true",
+    )
     return parser.parse_args()
 
 
@@ -86,24 +90,32 @@ def main():
 
     prompt = hub.pull("rlm/rag-prompt")  # RAG 관련 prompt
 
-    retrieve_with_args = partial(retrieve, vector_store=vector_store)
-    generate_with_args = partial(generate, llm=llm, prompt=prompt)
+    if args.use_langgraph:
+        retrieve_with_args = partial(retrieve, vector_store=vector_store)
+        generate_with_args = partial(generate, llm=llm, prompt=prompt)
 
-    workflow = StateGraph(State)
+        workflow = StateGraph(State)
 
-    # Add nodes with retry policies and configurations
-    workflow.add_node("retrieve", retrieve_with_args)
-    workflow.add_node("generate", generate_with_args)
+        # Add nodes with retry policies and configurations
+        workflow.add_node("retrieve", retrieve_with_args)
+        workflow.add_node("generate", generate_with_args)
 
-    # Add edges
-    workflow.add_edge(START, "retrieve")
-    workflow.add_edge("retrieve", "generate")
+        # Add edges
+        workflow.add_edge(START, "retrieve")
+        workflow.add_edge("retrieve", "generate")
 
-    # Compile graph
-    graph = workflow.compile()
+        # Compile graph
+        graph = workflow.compile()
 
-    # Run the graph
-    result = graph.invoke({"question": args.question})
+        # Run the graph
+        result = graph.invoke({"question": args.question})
+    else:
+        retrieved_docs = vector_store.similarity_search(args.question)
+        docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        messages = prompt.invoke({"question": args.question, "context": docs_content})
+        response = llm.invoke(messages)
+        result = {"context": retrieved_docs, "answer": response}
+
     print(f'Context: {result["context"]}\n\n')
     print(f'Answer: {result["answer"]}')
 

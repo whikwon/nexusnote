@@ -45,10 +45,8 @@ def parse_args():
 def main():
     args = parse_args()
 
-    text_store = LanceDBVectorStore(uri="db/lancedb", collection_name="text_collection")
-    image_store = LanceDBVectorStore(
-        uri="db/lancedb", collection_name="image_collection"
-    )
+    text_store = LanceDBVectorStore(uri="db/lancedb", table_name="text_collection")
+    image_store = LanceDBVectorStore(uri="db/lancedb", table_name="image_collection")
     storage_context = StorageContext.from_defaults(
         vector_store=text_store, image_store=image_store
     )

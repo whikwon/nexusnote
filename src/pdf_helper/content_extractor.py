@@ -21,6 +21,7 @@ class ChunkMetaData(BaseModel):
 
 
 class PaddleXBoxContent(BaseModel):
+    file_id: str
     page_number: int
     bbox: List[float]
     cls_id: PaddleX17Cls
@@ -49,7 +50,7 @@ class EnrichedPaddleXBoxContent(PaddleXBoxContent):
 
 
 def parse_box_contents(
-    page: fitz.Page, box: PaddleXBox, w_scale: float, h_scale: float
+    page: fitz.Page, box: PaddleXBox, w_scale: float, h_scale: float, file_id: str
 ) -> dict:
     cls_id = box.cls_id
     bbox = [
@@ -62,6 +63,7 @@ def parse_box_contents(
         "page_number": page.number,
         "bbox": bbox,
         "cls_id": cls_id,
+        "file_id": file_id,
     }
 
     if cls_id in [

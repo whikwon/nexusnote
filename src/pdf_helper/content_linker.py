@@ -142,6 +142,7 @@ def process_document_relationships(
     # Create enriched content once and reuse it
     enriched_content = [
         EnrichedPaddleXBoxContent(
+            file_id=content.file_id,
             page_number=content.page_number,
             bbox=content.bbox,
             cls_id=content.cls_id,
