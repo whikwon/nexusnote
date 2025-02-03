@@ -20,12 +20,23 @@ class ChunkMetaData(BaseModel):
     updated_at: str
 
 
+class FontData(BaseModel, frozen=True):
+    name: str
+    size: float
+
+
+class TextData(BaseModel):
+    content: str
+    fonts: List[FontData]
+
+
 class PaddleXBoxContent(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
     file_id: str
     page_number: int
     bbox: List[float]
     cls_id: PaddleX17Cls
-    text: Optional[str] = None
+    text: Optional[TextData] = None
     image: Optional[str] = None
 
 
@@ -43,12 +54,6 @@ class Reference(BaseModel):
     text: str
 
 
-class EnrichedPaddleXBoxContent(PaddleXBoxContent):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    references_to: List[Reference] = []
-    referenced_by: List[Reference] = []
-
-
 def parse_box_contents(
     page: fitz.Page, box: PaddleXBox, w_scale: float, h_scale: float, file_id: str
 ) -> dict:
@@ -60,7 +65,7 @@ def parse_box_contents(
         box.coordinate[3] * h_scale,
     ]
     result = {
-        "page_number": page.number,
+        "page_number": page.number + 1,
         "bbox": bbox,
         "cls_id": cls_id,
         "file_id": file_id,
@@ -84,6 +89,7 @@ def parse_box_contents(
         )
     else:
         text_parts = []
+        fonts = set()
         blocks = page.get_text("dict", clip=bbox)
         for block in blocks["blocks"]:
             block_text = []
@@ -93,16 +99,17 @@ def parse_box_contents(
                 line_text = ""
                 for span in line["spans"]:
                     line_text += span["text"]
+                    fonts.add(FontData(name=span["font"], size=span["size"]))
                 block_text.append(line_text)
             text_parts.append(" ".join(block_text))
         text = "\n\n".join(text_parts)
-        result.update({"text": text})
+        result.update({"text": {"content": text, "fonts": list(fonts)}})
 
     return PaddleXBoxContent(**result)
 
 
 def chunk_layout_contents(
-    content_list: List[EnrichedPaddleXBoxContent],
+    content_list: List[PaddleXBoxContent],
     content_filter_func=None,
     max_chunk_size: int = 5_000,  # Maximum characters per chunk
     overlap_boxes: int = 1,
@@ -122,7 +129,7 @@ def chunk_layout_contents(
         List[langchain_Document]: List of document chunks with metadata including UUIDs
     """
     chunks = []
-    current_boxes: List[EnrichedPaddleXBoxContent] = []
+    current_boxes: List[PaddleXBoxContent] = []
     current_size: int = 0
     current_pages: Set[int] = set()
     current_uuids: Set[str] = set()
@@ -135,7 +142,7 @@ def chunk_layout_contents(
     # Sort content by page number and vertical position (bbox[1])
     sorted_contents = sorted(content_list, key=lambda x: (x.page_number, x.bbox[1]))
 
-    def get_box_size(box: EnrichedPaddleXBoxContent) -> int:
+    def get_box_size(box: PaddleXBoxContent) -> int:
         if box.image is not None:
             # Apply a weight factor to image size since base64 is verbose
             # Decode base64 to get actual image size in bytes
@@ -145,7 +152,7 @@ def chunk_layout_contents(
             return len(image_bytes) // 4  # Adjust weight factor as needed
         return len(box.text.strip()) if box.text else 0
 
-    def create_chunk_text(boxes: List[EnrichedPaddleXBoxContent]) -> str:
+    def create_chunk_text(boxes: List[PaddleXBoxContent]) -> str:
         """Helper function to create chunk text from content boxes"""
         chunk_parts = []
         for box in boxes:
@@ -162,7 +169,7 @@ def chunk_layout_contents(
         return "\n".join(chunk_parts)
 
     def create_chunk_document(
-        boxes: List[EnrichedPaddleXBoxContent],
+        boxes: List[PaddleXBoxContent],
     ) -> langchain_Document:
         """Helper function to create a document with consistent metadata"""
         pages = {box.page_number for box in boxes}
