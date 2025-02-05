@@ -39,6 +39,9 @@ class PaddleXBoxContent(BaseModel):
     text: Optional[TextData] = None
     image: Optional[str] = None
 
+    class Config:
+        json_encoders: {PaddleX17Cls: lambda v: v.value}
+
 
 class ReferenceType(str, Enum):
     TABLE = "table"
@@ -52,6 +55,9 @@ class Reference(BaseModel):
     target_id: str
     type: ReferenceType
     text: str
+
+    class Config:
+        json_encoders: {ReferenceType: lambda v: v.value}
 
 
 def parse_box_contents(
