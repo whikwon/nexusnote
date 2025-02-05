@@ -59,7 +59,7 @@ def store_structure_to_mongodb(
     """
     # Store each node
     for node in static_structure.nodes.values():
-        node_dict = node.model_dump()
+        node_dict = node.model_dump(mode="json")
         # Convert enum value to its underlying value (if any)
         node_dict["level"] = node.level.value
         # You might want to rename or remove fields as needed before storage.
@@ -67,7 +67,7 @@ def store_structure_to_mongodb(
 
     # Store each reference relationship
     for rel in static_structure.references:
-        rel_dict = rel.model_dump()
+        rel_dict = rel.model_dump(mode="json")
         # Convert enum to its value
         rel_dict["rel_type"] = rel.rel_type.value
         # Create a unique identifier for the relationship, e.g., based on source, target, and type
