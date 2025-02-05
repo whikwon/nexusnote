@@ -11,12 +11,10 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 
 from src.embeddings.langchain import JinaClipV2Embeddings
-from src.pdf_helper.content_extractor import parse_box_contents
-from src.pdf_helper.document_processor import (
-    StaticDocumentStructure,
-    create_subsection_documents,
-)
-from src.pdf_helper.layout_extractor import LayoutExtractor
+from src.pdf_helper.chunk_creator import create_subsection_documents
+from src.pdf_helper.content_parser import parse_box_contents
+from src.pdf_helper.layout_parser import LayoutExtractor
+from src.pdf_helper.structure_manager import StaticDocumentStructure
 from src.utils.image import fitz_page_to_image_array
 
 

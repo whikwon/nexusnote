@@ -8,7 +8,7 @@ from langchain_core.documents import Document as langchain_Document
 from PIL import Image
 from pydantic import BaseModel, Field
 
-from src.pdf_helper.layout_extractor import PaddleX17Cls, PaddleXBox
+from src.pdf_helper.layout_parser import PaddleX17Cls, PaddleXBox
 from src.utils.image import pil_to_base64
 
 
