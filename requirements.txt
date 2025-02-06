@@ -12,3 +12,6 @@ pdfplumber
 gmft
 paddlepaddle
 pymupdf
+qwen-vl-utils[decord]
+git+https://github.com/huggingface/transformers 
+accelerate

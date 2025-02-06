@@ -8,13 +8,16 @@ from langchain import hub
 from langchain_community.vectorstores import LanceDB
 from langchain_ollama import OllamaLLM
 from pymongo import MongoClient
-from pymongo.collection import Collection
 
 from src.embeddings.langchain import JinaClipV2Embeddings
-from src.pdf_helper.chunk_creator import create_subsection_documents
+from src.pdf_helper.chunk_creator import create_root_node_documents
 from src.pdf_helper.content_parser import parse_box_contents
+from src.pdf_helper.document_hierarchy import TocEntry, build_document_hierarchy
 from src.pdf_helper.layout_parser import LayoutExtractor
-from src.pdf_helper.structure_manager import StaticDocumentStructure
+from src.pdf_helper.reference_manager import (
+    ReferenceManager,
+    add_title_content_references,
+)
 from src.utils.image import fitz_page_to_image_array
 
 
@@ -43,42 +46,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def store_structure_to_mongodb(
-    static_structure: StaticDocumentStructure,
-    node_collection: Collection,
-    relationship_collection: Collection,
-) -> None:
-    """
-    Stores the static structure nodes and reference relationships into MongoDB.
-
-    :param static_structure: The StaticDocumentStructure instance.
-    :param node_collection: MongoDB collection for hierarchy nodes.
-    :param relationship_collection: MongoDB collection for reference relationships.
-    """
-    # Store each node
-    for node in static_structure.nodes.values():
-        node_dict = node.model_dump(mode="json")
-        # Convert enum value to its underlying value (if any)
-        node_dict["level"] = node.level.value
-        # You might want to rename or remove fields as needed before storage.
-        node_collection.update_one({"id": node.id}, {"$set": node_dict}, upsert=True)
-
-    # Store each reference relationship
-    for rel in static_structure.references:
-        rel_dict = rel.model_dump(mode="json")
-        # Convert enum to its value
-        rel_dict["rel_type"] = rel.rel_type.value
-        # Create a unique identifier for the relationship, e.g., based on source, target, and type
-        unique_filter = {
-            "source_id": rel.source_id,
-            "target_id": rel.target_id,
-            "rel_type": rel_dict["rel_type"],
-        }
-        relationship_collection.update_one(
-            unique_filter, {"$set": rel_dict}, upsert=True
-        )
-
-
 def main():
     args = parse_args()
     pdf_path = Path(args.pdf_path)
@@ -93,6 +60,8 @@ def main():
     # New collections for static structure storage.
     node_collection = mongo_db.get_collection("document_nodes")
     relationship_collection = mongo_db.get_collection("document_relationships")
+    # New collection for storing individual box contents.
+    box_collection = mongo_db.get_collection("box_contents")
     lance_db_conn = lancedb.connect("db/lancedb")
 
     llm = OllamaLLM(model="llama3.2")
@@ -129,27 +98,56 @@ def main():
                 content = parse_box_contents(page, box, w_scale, h_scale, file_id)
                 content_list.append(content)
 
-        # Build the static document structure
-        static_structure = StaticDocumentStructure()
-        static_structure.build_hierarchy(content_list)
-        static_structure.build_references()
+        # Build the static document structure.
+        # Convert the PDF's table-of-contents into a list of TocEntry objects.
+        toc = [
+            TocEntry(level=t[0], title=t[1], page_number=t[2]) for t in doc.get_toc()
+        ]
+        hierarchy = build_document_hierarchy(content_list, toc)
 
-        # Store the static structure (nodes and relationships) to MongoDB
-        store_structure_to_mongodb(
-            static_structure, node_collection, relationship_collection
-        )
-
-        # Process dynamic content (e.g., add embeddings)
-        subsection_documents = create_subsection_documents(static_structure)
+        # Process dynamic content (e.g., create chunks for RAG)
+        subsection_documents = create_root_node_documents(hierarchy)
 
         # Add processed documents to the vector store
         document_ids = vector_store.add_documents(subsection_documents)
         print(f"Added {len(document_ids)} documents to vector store")
 
+        # Save the base content objects (PaddleXBoxContent) into MongoDB.
+        content_dicts = [content.dict() for content in content_list]
+        if content_dicts:
+            box_collection.insert_many(content_dicts)
+            print(f"Inserted {len(content_dicts)} box content documents")
+
+        # Save the static document structure (GroupedNodes) into MongoDB.
+        # We serialize the grouped nodes so that the "content_boxes" field contains only IDs,
+        # and we recursively handle children.
+        def serialize_grouped_node(node):
+            data = node.dict()
+            # Replace embedded PaddleXBoxContent objects with their IDs
+            data["content_boxes"] = [box.id for box in node.content_boxes]
+            # Recursively serialize children nodes
+            data["children"] = [
+                serialize_grouped_node(child) for child in node.children
+            ]
+            return data
+
+        node_docs = [serialize_grouped_node(node) for node in hierarchy.root_nodes]
+        if node_docs:
+            node_collection.insert_many(node_docs)
+            print(f"Inserted {len(node_docs)} document nodes into MongoDB")
+
+        # Save reference relationships
+        ref_manager = ReferenceManager()
+        add_title_content_references(content_list, ref_manager)
+        rel_docs = [rel.model_dump() for rel in ref_manager.relationships]
+        if rel_docs:
+            relationship_collection.insert_many(rel_docs)
+            print(f"Inserted {len(rel_docs)} document relationship documents")
+
         # Record file processing in MongoDB
         file_collection.insert_one({"file_name": file_name, "file_id": file_id})
 
-    # RAG Pipeline: Retrieve documents and generate a response
+    # RAG Pipeline: Retrieve documents and generate a response.
     prompt = hub.pull("rlm/rag-prompt")
     retrieved_docs = vector_store.similarity_search(args.question, k=10)
     docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)

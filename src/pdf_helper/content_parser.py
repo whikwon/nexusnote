@@ -20,9 +20,12 @@ class ChunkMetaData(BaseModel):
     updated_at: str
 
 
-class FontData(BaseModel, frozen=True):
+class FontData(BaseModel):
     name: str
     size: float
+
+    class Config:
+        frozen = True
 
 
 class TextData(BaseModel):
