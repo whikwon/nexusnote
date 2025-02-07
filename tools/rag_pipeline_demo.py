@@ -18,6 +18,7 @@ from src.pdf_helper.reference_manager import (
     ReferenceManager,
     add_title_content_references,
 )
+from src.pdf_helper.visualize import visualize_document_structure
 from src.utils.image import fitz_page_to_image_array
 
 
@@ -34,7 +35,7 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="./outputs/extract_contents",
+        default="./outputs/rag_pipeline_demo",
         help="The directory to save the output files.",
     )
     parser.add_argument(
@@ -113,7 +114,7 @@ def main():
         print(f"Added {len(document_ids)} documents to vector store")
 
         # Save the base content objects (PaddleXBoxContent) into MongoDB.
-        content_dicts = [content.dict() for content in content_list]
+        content_dicts = [content.model_dump(mode="json") for content in content_list]
         if content_dicts:
             box_collection.insert_many(content_dicts)
             print(f"Inserted {len(content_dicts)} box content documents")
@@ -122,7 +123,7 @@ def main():
         # We serialize the grouped nodes so that the "content_boxes" field contains only IDs,
         # and we recursively handle children.
         def serialize_grouped_node(node):
-            data = node.dict()
+            data = node.model_dump(mode="json")
             # Replace embedded PaddleXBoxContent objects with their IDs
             data["content_boxes"] = [box.id for box in node.content_boxes]
             # Recursively serialize children nodes
@@ -138,14 +139,17 @@ def main():
 
         # Save reference relationships
         ref_manager = ReferenceManager()
-        add_title_content_references(content_list, ref_manager)
-        rel_docs = [rel.model_dump() for rel in ref_manager.relationships]
+        add_title_content_references(content_list, ref_manager, doc[0].rect.height)
+        rel_docs = [rel.model_dump(mode="json") for rel in ref_manager.relationships]
         if rel_docs:
             relationship_collection.insert_many(rel_docs)
             print(f"Inserted {len(rel_docs)} document relationship documents")
 
         # Record file processing in MongoDB
         file_collection.insert_one({"file_name": file_name, "file_id": file_id})
+        visualize_document_structure(
+            pdf_path, hierarchy, ref_manager, output_dir / "visualized_output.pdf"
+        )
 
     # RAG Pipeline: Retrieve documents and generate a response.
     prompt = hub.pull("rlm/rag-prompt")
