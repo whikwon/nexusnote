@@ -4,7 +4,6 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from rapidfuzz import fuzz
 
-# (Assuming these are imported from your existing modules)
 from .content_parser import PaddleXBoxContent
 from .toc_extractor import TocEntry
 
@@ -31,6 +30,7 @@ class GroupedNode(BaseModel):
     content_boxes: List[PaddleXBoxContent] = []  # All boxes grouped in this node.
     children: List["GroupedNode"] = []  # Child nodes within this group.
     parent_id: Optional[str] = None  # Optional parent node id.
+    file_id: str
 
     class Config:
         orm_mode = True
@@ -96,12 +96,14 @@ def build_document_hierarchy(
     # --- 1. Create initial GroupedNodes from TOC entries ---
     # (These serve as “prototypes” for matching; later new occurrences may be added if a header repeats.)
     toc_nodes: List[GroupedNode] = []
+    file_id = content_list[0].file_id
     for toc in toc_entries:
         node = GroupedNode(
             level=toc.level,
             title=toc.title,
             page_number=toc.page_number,
             content_boxes=[],  # initially empty; we will add boxes sequentially
+            file_id=file_id,
         )
         toc_nodes.append(node)
 
@@ -141,6 +143,7 @@ def build_document_hierarchy(
                         title=matched.title,
                         page_number=box.page_number,
                         content_boxes=[box],  # add the header box immediately
+                        file_id=file_id,
                     )
                     # Optionally, register this new section in our toc_nodes list.
                     toc_nodes.append(new_section)
