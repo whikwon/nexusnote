@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from bs4 import BeautifulSoup
 from langchain_core.documents import Document as langchain_Document
@@ -36,7 +36,7 @@ def flatten_blocks(blocks: List[JSONBlockOutput]) -> List[JSONBlockOutput]:
 
 
 def create_chunks_by_level(
-    json_output: JSONOutput, desired_level: int
+    json_output: JSONOutput, file_id: str, desired_level: int
 ) -> List[langchain_Document]:
     """
     Create chunks grouped by a specified section/chapter level.
@@ -74,7 +74,7 @@ def create_chunks_by_level(
                 chunks.append(
                     langchain_Document(
                         metadata={
-                            "file_id": json_output.metadata["file_id"],
+                            "file_id": file_id,
                             "section": (
                                 current_section
                                 if current_section is not None
@@ -102,7 +102,7 @@ def create_chunks_by_level(
         chunks.append(
             langchain_Document(
                 metadata={
-                    "file_id": json_output.metadata["file_id"],
+                    "file_id": file_id,
                     "section": (
                         current_section if current_section is not None else "default"
                     ),

@@ -4,22 +4,18 @@ import os
 from pathlib import Path
 from uuid import uuid4
 
-import fitz
 import lancedb
 from dotenv import load_dotenv
 from langchain import hub
 from langchain_community.vectorstores import LanceDB
 from langchain_ollama import OllamaLLM
-from marker.config.parser import ConfigParser
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.renderers.json import JSONOutput
 from pymongo import MongoClient
 
+from src.chunk_processor import create_chunks_by_level
 from src.embeddings.langchain import JinaClipV2Embeddings
-from src.marker_helper.chunk_creator import create_chunks_by_level
-from src.marker_helper.utils import encode_marker_json_output
-from src.marker_helper.visualize import visualize_document_structure
+from src.model import Document, Page
+from src.pdf_processor.marker import MarkerPDFProcessor
+from src.visualize import visualize_document_structure
 
 # Configure logging to display time, level, and message
 logging.basicConfig(
@@ -49,6 +45,11 @@ def parse_args():
         help="Directory where output files will be saved.",
     )
     parser.add_argument(
+        "--use_llm",
+        action="store_true",
+        help="Use the language model for processing.",
+    )
+    parser.add_argument(
         "--question",
         type=str,
         default="What is Titan?",
@@ -70,10 +71,8 @@ def main():
     # Initialize MongoDB client and select the required collections.
     client = MongoClient("mongodb://localhost:27017/")
     mongo_db = client.get_database("pdf_contents")
-    file_collection = mongo_db.get_collection("files")
-    marker_output_collection = mongo_db.get_collection(
-        "marker_outputs"
-    )  # For storing processed outputs.
+    document_collection = mongo_db.get_collection("documents")
+    page_collection = mongo_db.get_collection("pages")
     logging.info("Connected to MongoDB database 'pdf_contents'.")
 
     # Establish connection to the LanceDB vector store.
@@ -88,66 +87,55 @@ def main():
     logging.info("Initialized LLM, embeddings, and vector store.")
 
     # Check if this file has already been processed.
-    res = file_collection.find_one({"file_name": file_name})
+    res = document_collection.find_one({"file_name": file_name})
     file_id = str(uuid4()) if res is None else res["file_id"]
 
     if res is None:
         logging.info(
             "File not found in DB. Proceeding to process new file: %s", file_name
         )
-        # Load environment variables from ~/.env.
-        load_dotenv(os.path.expanduser("~/.env"))
-        logging.info("Loaded environment variables from ~/.env.")
 
         # Define basic configuration options for PDF conversion.
         config = {
             "output_format": "json",
-            "use_llm": True,
-            "google_api_key": os.getenv("GOOGLE_API_KEY"),
         }
+        if args.use_llm:
+            # Load environment variables from ~/.env.
+            load_dotenv(os.path.expanduser("~/.env"))
+            logging.info("Loaded environment variables from ~/.env.")
+
+            config["use_llm"] = True
+            config["google_api_key"] = os.getenv("GOOGLE_API_KEY")
         logging.info("PDF conversion configuration: %s", config)
 
         # Initialize the configuration parser.
-        config_parser = ConfigParser(config)
+        pdf_processor = MarkerPDFProcessor(config)
         # Using the provided PDF path.
-        file_path = pdf_path
-
-        # Initialize the PDF converter with the configuration, model artifacts, processors, and renderer.
-        converter = PdfConverter(
-            config=config_parser.generate_config_dict(),
-            artifact_dict=create_model_dict(),
-            processor_list=config_parser.get_processors(),
-            renderer=config_parser.get_renderer(),
-        )
         logging.info("Initialized PDF converter.")
 
         # Convert the PDF file into a rendered document.
-        rendered = converter(str(file_path))
-        # Update the rendered document's metadata with a unique file_id.
-        rendered.metadata.update({"file_id": file_id})
-        logging.info("PDF conversion completed for file: %s", file_name)
+        rendered = pdf_processor.process(pdf_path)
+        pages = Page.get_pages_from_json_output(file_id, rendered)
+        page_collection.insert_many([page.to_mongo() for page in pages])
 
         # Create an output directory using the file's stem to keep outputs organized.
-        output_dir = Path(args.output_dir) / file_path.stem
+        output_dir = Path(args.output_dir) / pdf_path.stem
         output_dir.mkdir(parents=True, exist_ok=True)
         logging.info("Created output directory: %s", output_dir)
 
         # Generate document chunks from the rendered PDF.
-        chunks = create_chunks_by_level(rendered, desired_level=1)
+        chunks = create_chunks_by_level(rendered, file_id, desired_level=1)
         logging.info("Created %d chunks from the document.", len(chunks))
 
         # Add the document chunks to the vector store.
         document_ids = vector_store.add_documents(chunks)
         logging.info("Added %d documents to the vector store.", len(document_ids))
 
-        # Encode the rendered document into a JSON-compatible format.
-        rendered_dict = encode_marker_json_output(rendered)
-        # Store the encoded document in MongoDB.
-        marker_output_collection.insert_one(rendered_dict)
-        logging.info("Saved rendered document to MongoDB.")
-
         # Record the processed file in the MongoDB 'files' collection.
-        file_collection.insert_one({"file_name": file_name, "file_id": file_id})
+        document = Document(
+            file_id=file_id, file_name=file_name, metadata=rendered.metadata
+        )
+        document_collection.insert_one(document.model_dump())
         logging.info("Recorded file processing in MongoDB with file_id: %s", file_id)
 
         visualize_document_structure(
