@@ -1,0 +1,83 @@
+from typing import Dict, List
+
+from bs4 import BeautifulSoup
+from pydantic import BaseModel
+
+from .block import Block
+from .chunk import Chunk, ChunkMetadata
+
+
+class Section(BaseModel):
+    file_id: str
+    section_hierarchy: Dict[str, str]
+    blocks: List[Block]
+
+    @staticmethod
+    def from_blocks(
+        blocks: List[Block], section_hierarchy: Dict[str, str]
+    ) -> "Section":
+        """
+        Create a section from a list of blocks
+        """
+        file_id = blocks[0].file_id
+        section_blocks = []
+        for block in blocks:
+            if (
+                block.section_hierarchy is not None
+                and section_hierarchy.items() <= block.section_hierarchy.items()
+            ):
+                section_blocks.append(block)
+        return Section(
+            file_id=file_id,
+            section_hierarchy=section_hierarchy,
+            blocks=section_blocks,
+        )
+
+    def to_chunks(self, size_limit=None):
+        """
+        Convert the section into chunks
+        """
+        i = 0
+        text = ""
+        block_ids = []
+        for block in self.blocks:
+            if block.block_type.lower().startswith("table"):
+                text += block.html.strip() + "\n"
+            else:
+                soup = BeautifulSoup(block.html, "html.parser")
+                text += soup.get_text(separator=" ", strip=True) + "\n"
+            block_ids.append(block.block_id)
+
+        metadata = ChunkMetadata(
+            file_id=self.file_id,
+            section_hierarchy=self.section_hierarchy,
+            chunk_id=i,
+            block_ids=block_ids,
+        )
+        page_content = text
+        chunk = Chunk(metadata=metadata.model_dump(), page_content=page_content)
+        return [chunk]
+
+
+def gather_section_hierarchies(
+    blocks: List[Block], levels: List[str]
+) -> List[Dict[str, str]]:
+    required_keys = set(levels)
+    seen = set()  # to store frozenset representations for deduplication
+    results = []
+
+    for block in blocks:
+        section_hierarchy = block.section_hierarchy
+        if not section_hierarchy:
+            continue
+        # Check if all required levels exist in the current section_hierarchy
+        if required_keys <= section_hierarchy.keys():
+            # Build a new dictionary with just the desired levels
+            sub_hierarchy = {lvl: section_hierarchy[lvl] for lvl in levels}
+            # Convert to a frozenset so it can be added to a set for deduplication
+            key = frozenset(sub_hierarchy.items())
+            if key not in seen:
+                seen.add(key)
+                results.append(sub_hierarchy)
+
+    return results

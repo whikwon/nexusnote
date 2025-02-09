@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
 from marker.config.parser import ConfigParser
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
-from marker.renderers.json import JSONOutput
+from marker.renderers.json import JSONBlockOutput, JSONOutput
 from marker.settings import settings
 
 
@@ -44,3 +44,17 @@ class MarkerPDFProcessor:
         rendered = self.converter(pdf_path)
         if isinstance(rendered, JSONOutput):
             return JSONOutput(**self._extract_rendered_json_data(rendered))
+        return rendered
+
+
+def flatten_blocks(blocks: List[JSONBlockOutput]) -> List[JSONBlockOutput]:
+    """
+    Recursively traverse the list of JSONBlockOutput blocks and return a flat list,
+    preserving the order.
+    """
+    flat_list = []
+    for block in blocks:
+        flat_list.append(block)
+        if block.children:
+            flat_list.extend(flatten_blocks(block.children))
+    return flat_list
