@@ -1,10 +1,10 @@
 from typing import Any, Dict
 
+from beanie import Document
 from marker.renderers.json import JSONOutput
-from pydantic import BaseModel
 
 
-class Document(BaseModel):
+class Document(Document):
     file_id: str
     file_name: str
     metadata: Dict[str, Any]

@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from .block import Block
+from app.models.block import Block
 
 
 class Page(BaseModel):

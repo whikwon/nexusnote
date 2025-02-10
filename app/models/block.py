@@ -1,7 +1,7 @@
 from typing import Dict, List
 
+from beanie import Document
 from marker.renderers.json import JSONBlockOutput
-from pydantic import BaseModel
 
 
 def convert_keys_to_str(data):
@@ -13,7 +13,7 @@ def convert_keys_to_str(data):
         return data
 
 
-class Block(BaseModel):
+class Block(Document):
     file_id: str
     page_number: int
     block_id: str
@@ -24,6 +24,9 @@ class Block(BaseModel):
     children: List[str] | None = None
     section_hierarchy: Dict[str, str] | None = None
     images: dict | None = None
+
+    class Settings:
+        name = "block"
 
     @staticmethod
     def from_JSONBlockOutput(
