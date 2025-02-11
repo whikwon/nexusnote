@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
@@ -27,7 +28,7 @@ async def lifespan(app: FastAPI):
         table_name=settings.LANCE_TABLE_NAME,
     )
 
-    # microservice 고려하기
+    # consider microservice
     app.state.lance_db_conn = lance_db_conn
     app.state.mongo_db_client = mongo_db_client
     app.state.embeddings = embeddings
@@ -42,6 +43,13 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500, content={"message": "An unexpected error occurred."}
+    )
 
 
 # Set all CORS enabled origins

@@ -8,25 +8,36 @@ from fastapi import APIRouter, Request
 from app.core.config import settings
 from app.models import Block, Document
 from app.rag.pdf_processors.marker import MarkerPDFProcessor, flatten_blocks
-from app.schemas.request import PDFAddRequest, PDFProcessRequest
+from app.rag.prompts.base import get_rag_prompt
+from app.schemas.request import (
+    DocumentProcessRequest,
+    DocumentUploadRequest,
+    RAGRequest,
+)
+from app.schemas.response import (
+    ProcessDocumentResponse,
+    RAGResponse,
+    UploadDocumentResponse,
+)
 from app.schemas.section import Section, gather_section_hierarchies
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/doc", tags=["doc"])
 
 
-@router.post("/extract")
-async def extract_document(request: Request, payload: PDFProcessRequest):
+@router.post("/process")
+async def process_document(
+    request: Request, payload: DocumentProcessRequest
+) -> ProcessDocumentResponse:
     app_state = request.app.state
     vector_store = app_state.vector_store
     file_id = payload.file_id
 
     res = await Document.find_one({"file_id": file_id})
     if res is None:
-        return {
-            "status": "success",
-            "message": "File not found in DB. Please add the file first.",
-        }
+        return ProcessDocumentResponse(
+            status="fail", message="File not found in DB. Please add the file first."
+        )
 
     file_path = res.file_path
     file_name = res.file_name
@@ -40,9 +51,9 @@ async def extract_document(request: Request, payload: PDFProcessRequest):
     blocks = flatten_blocks(rendered.children)
     blocks = [
         Block.from_JSONBlockOutput(file_id, page_number, block)
-        for page_number, block in blocks
+        for page_number, block in enumerate(blocks)
     ]
-    Block.insert_many(blocks)
+    await Block.insert_many(blocks)
 
     section_hierarchies = gather_section_hierarchies(blocks, ["1", "2"])
     sections = [
@@ -58,13 +69,16 @@ async def extract_document(request: Request, payload: PDFProcessRequest):
     document = Document.find_one({"file_id": file_id})
     await document.set({Document.metadata: rendered.metadata})
     logger.info(f"Recorded file processing in DB with file_id: {file_id}")
-    return {
-        "status": "success",
-    }
+
+    return ProcessDocumentResponse(
+        status="success",
+        file_id=file_id,
+        num_chunks=len(chunks),
+    )
 
 
-@router.post("/add")
-async def add_document(payload: PDFAddRequest):
+@router.post("/upload")
+async def upload_document(payload: DocumentUploadRequest) -> UploadDocumentResponse:
     file_id = str(uuid4())
     orig_file_name = payload.file_name
     orig_suffix = Path(orig_file_name).suffix
@@ -80,4 +94,33 @@ async def add_document(payload: PDFAddRequest):
         file_path=str(file_path.relative_to(settings.DOCUMENT_DIR_PATH)),
     )
     await document.insert()
-    return {"status": "success"}
+    return UploadDocumentResponse(
+        status="success",
+        file_id=file_id,
+        message="File uploaded successfully.",
+    )
+
+
+@router.post("/rag")
+def retrieve_and_respond(request: Request, payload: RAGRequest) -> RAGResponse:
+    app_state = request.app.state
+    vector_store = app_state.vector_store
+    llm = app_state.llm
+
+    retrieved_docs = vector_store.similarity_search(payload.question, k=payload.k)
+    logging.info(
+        "Retrieved %d similar documents for the question.", len(retrieved_docs)
+    )
+    docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
+
+    prompt = get_rag_prompt()
+    messages = prompt.invoke({"question": payload.question, "context": docs_content})
+    response = llm.invoke(messages)
+    logging.info("Generated response from the language model.")
+
+    return RAGResponse(
+        status="success",
+        response=response,
+        question=payload.question,
+        documents_retrieved=len(retrieved_docs),
+    )
