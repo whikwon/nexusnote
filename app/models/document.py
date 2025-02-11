@@ -1,18 +1,13 @@
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
-from beanie import Document
-from marker.renderers.json import JSONOutput
+from beanie import Document as BeanieDocument
+from pydantic import Field
 
 
-class Document(Document):
-    file_id: str
-    file_name: str
-    metadata: Dict[str, Any]
-
-    @staticmethod
-    def from_JSONOutput(file_id: str, file_name: str, output: JSONOutput):
-        return Document(
-            file_id=file_id,
-            file_name=file_name,
-            metadata=output.metadata,
-        )
+class Document(BeanieDocument):
+    file_id: str  # Unique identifier for the file, assigned at upload time (immutable).
+    file_name: str  # User-visible name of the file, which can be updated or changed on the frontend.
+    file_path: str  # Relative path to the file within the storage directory.
+    metadata: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

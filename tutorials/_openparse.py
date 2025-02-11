@@ -2,7 +2,7 @@
 https://github.com/Filimoa/open-parse
 
 uuid 자동 생성
-chunk 기능 
+chunk 기능
 """
 
 import argparse

@@ -1,4 +1,3 @@
-from typing import Dict, List
 
 import fitz  # PyMuPDF
 from marker.renderers.json import JSONBlockOutput, JSONOutput
@@ -37,7 +36,7 @@ def map_level_to_color(level: int) -> tuple:
     return HIERARCHY_COLOR_MAP.get(level, (0.8, 0.5, 0))
 
 
-def traverse_marker_blocks(blocks: List[JSONBlockOutput]):
+def traverse_marker_blocks(blocks: list[JSONBlockOutput]):
     """
     Recursively traverse the list of Marker blocks and yield each block.
     """
@@ -62,7 +61,7 @@ def get_page_number_from_block_id(block_id: str) -> int:
     return 0
 
 
-def polygon_to_rect(poly: List[List[float]]) -> fitz.Rect:
+def polygon_to_rect(poly: list[list[float]]) -> fitz.Rect:
     """
     Convert a polygon (list of four [x, y] points) to a bounding rectangle.
     Computes min/max coordinates and returns a fitz.Rect.
@@ -139,7 +138,7 @@ def visualize_document_structure(
     doc = fitz.open(pdf_path)
 
     # (Optional) Build a mapping from block id to block.
-    block_mapping: Dict[str, JSONBlockOutput] = {}
+    block_mapping: dict[str, JSONBlockOutput] = {}
     for block in traverse_marker_blocks(marker.children):
         block_mapping[block.id] = block
 

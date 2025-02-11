@@ -1,20 +1,19 @@
-from typing import Dict, List
-
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from .block import Block
+from app.models.block import Block
+
 from .chunk import Chunk, ChunkMetadata
 
 
 class Section(BaseModel):
     file_id: str
-    section_hierarchy: Dict[str, str]
-    blocks: List[Block]
+    section_hierarchy: dict[str, str]
+    blocks: list[Block]
 
     @staticmethod
     def from_blocks(
-        blocks: List[Block], section_hierarchy: Dict[str, str]
+        blocks: list[Block], section_hierarchy: dict[str, str]
     ) -> "Section":
         """
         Create a section from a list of blocks
@@ -60,8 +59,8 @@ class Section(BaseModel):
 
 
 def gather_section_hierarchies(
-    blocks: List[Block], levels: List[str]
-) -> List[Dict[str, str]]:
+    blocks: list[Block], levels: list[str]
+) -> list[dict[str, str]]:
     required_keys = set(levels)
     seen = set()  # to store frozenset representations for deduplication
     results = []

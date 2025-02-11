@@ -29,6 +29,11 @@ def parse_args():
         default="outputs/marker",
         help="The directory to save the output files.",
     )
+    parser.add_argument(
+        "--use_llm",
+        action="store_true",
+        help="Use the LLM model for processing.",
+    )
 
     return parser.parse_args()
 
@@ -41,9 +46,14 @@ def main():
     # Define basic configuration options.
     config = {
         "output_format": "json",
-        "use_llm": True,
-        "google_api_key": os.getenv("GOOGLE_API_KEY"),
     }
+    if args.use_llm:
+        config.update(
+            {
+                "use_llm": True,
+                "google_api_key": os.getenv("GOOGLE_API_KEY"),
+            }
+        )
 
     # Initialize configuration parser.
     config_parser = ConfigParser(config)

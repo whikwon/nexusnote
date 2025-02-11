@@ -1,5 +1,6 @@
 import secrets
-from typing import Annotated, Any, Literal, Type
+from pathlib import Path
+from typing import Annotated, Any, Literal
 
 from langchain_ollama import OllamaLLM
 from pydantic import AnyUrl, BeforeValidator, HttpUrl, computed_field
@@ -30,9 +31,9 @@ class Settings(BaseSettings):
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
-    BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_cors)] = (
-        []
-    )
+    BACKEND_CORS_ORIGINS: Annotated[
+        list[AnyUrl] | str, BeforeValidator(parse_cors)
+    ] = []
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -58,13 +59,14 @@ class Settings(BaseSettings):
     LANCE_URI: str = "db/lancedb"
     LANCE_TABLE_NAME: str = "vectorstore"
 
-    EMBEDDINGS_CLS: Type[JinaClipV2Embeddings] = JinaClipV2Embeddings
+    EMBEDDINGS_CLS: type[JinaClipV2Embeddings] = JinaClipV2Embeddings
     EMBEDDINGS_KWARGS: dict[str, Any] = {}
 
-    LLM_CLS: Type[Any] = OllamaLLM
+    LLM_CLS: type[Any] = OllamaLLM
     LLM_KWARGS: dict[str, Any] = {"model": "llama3.2"}
 
-    DOCUMENT_DIR_PATH: str = "./data/documents"
+    DOCUMENT_DIR_PATH: Path = Path("./data/documents")
+    DOCUMENT_DIR_PATH.mkdir(exist_ok=True, parents=True)
 
 
 settings = Settings()  # type: ignore

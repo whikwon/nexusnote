@@ -1,6 +1,5 @@
 import lancedb
 from beanie import init_beanie
-from langchain_community.vectorstores import LanceDB
 from motor.motor_asyncio import AsyncIOMotorClient
 
 import app.models as models

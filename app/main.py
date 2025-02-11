@@ -3,7 +3,6 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
-from app.api.routes.test import router as TestRouter
 from app.core.config import settings
 from app.core.db import init_db
 from app.core.embeddings import init_embeddings
@@ -28,6 +27,7 @@ async def lifespan(app: FastAPI):
         table_name=settings.LANCE_TABLE_NAME,
     )
 
+    # microservice 고려하기
     app.state.lance_db_conn = lance_db_conn
     app.state.mongo_db_client = mongo_db_client
     app.state.embeddings = embeddings

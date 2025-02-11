@@ -135,7 +135,7 @@ def print_outlines(file: str) -> dict[int, int]:
                 fill_dots = 80 - len(title) - leading_spaces
 
                 print(
-                    f"{' ' * leading_spaces}" f"{title}",
+                    f"{' ' * leading_spaces}{title}",
                     f"{'.' * fill_dots}",
                     f"{page_num:>3}",
                 )
