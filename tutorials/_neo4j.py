@@ -1,5 +1,5 @@
 """
-Annotation 
+Annotation
 - id: str (UUID)
 - metadata: {
     type: str (drawing | text_annotation | bbox_annotation | ...),

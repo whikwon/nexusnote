@@ -116,8 +116,8 @@ def main():
         response = llm.invoke(messages)
         result = {"context": retrieved_docs, "answer": response}
 
-    print(f'Context: {result["context"]}\n\n')
-    print(f'Answer: {result["answer"]}')
+    print(f"Context: {result['context']}\n\n")
+    print(f"Answer: {result['answer']}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
+"""
+https://github.com/VikParuchuri/marker
+"""
+
 import json
 from pathlib import Path
-from typing import List, Union
 
 from marker.config.parser import ConfigParser
 from marker.converters.pdf import PdfConverter
@@ -38,7 +41,7 @@ class MarkerPDFProcessor:
             "metadata": rendered.metadata,
         }
 
-    def process(self, pdf_path: Union[str | Path]):
+    def process(self, pdf_path: str | Path):
         if isinstance(pdf_path, Path):
             pdf_path = str(pdf_path)
         rendered = self.converter(pdf_path)
@@ -47,7 +50,7 @@ class MarkerPDFProcessor:
         return rendered
 
 
-def flatten_blocks(blocks: List[JSONBlockOutput]) -> List[JSONBlockOutput]:
+def flatten_blocks(blocks: list[JSONBlockOutput]) -> list[JSONBlockOutput]:
     """
     Recursively traverse the list of JSONBlockOutput blocks and return a flat list,
     preserving the order.
