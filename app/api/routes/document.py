@@ -102,16 +102,34 @@ async def upload_document(payload: DocumentUploadRequest) -> UploadDocumentRespo
 
 
 @router.post("/rag")
-def retrieve_and_respond(request: Request, payload: RAGRequest) -> RAGResponse:
+async def retrieve_and_respond(request: Request, payload: RAGRequest) -> RAGResponse:
     app_state = request.app.state
     vector_store = app_state.vector_store
     llm = app_state.llm
 
-    retrieved_docs = vector_store.similarity_search(payload.question, k=payload.k)
+    file_id = payload.file_id
+    retrieved_docs = vector_store.similarity_search(
+        payload.question, k=payload.k, filter={"metadata.file_id": file_id}
+    )
     logging.info(
         "Retrieved %d similar documents for the question.", len(retrieved_docs)
     )
+    if len(retrieved_docs) == 0:
+        return RAGResponse(
+            status="fail",
+            response=f"No documents found for the given file_id({file_id}).",
+            question=payload.question,
+        )
     docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
+
+    # 필요 시 기능 분리하기
+    most_similar_doc = retrieved_docs[0]
+    most_similar_section = await Block.find(
+        {
+            "file_id": file_id,
+            "block_id": {"$in": most_similar_doc.metadata["block_ids"]},
+        }
+    ).to_list()
 
     prompt = get_rag_prompt()
     messages = prompt.invoke({"question": payload.question, "context": docs_content})
@@ -122,5 +140,6 @@ def retrieve_and_respond(request: Request, payload: RAGRequest) -> RAGResponse:
         status="success",
         response=response,
         question=payload.question,
-        documents_retrieved=len(retrieved_docs),
+        answer=len(retrieved_docs),
+        section=most_similar_section,
     )

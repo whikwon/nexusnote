@@ -1,13 +1,16 @@
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
+
+from app.models.block import Block
 
 
 class RAGResponse(BaseModel):
     status: str
     response: str
     question: Optional[str] = None
-    documents_retrieved: Optional[int] = None
+    answer: Optional[int] = None
+    section: List[Block] = None
 
 
 class UploadDocumentResponse(BaseModel):
