@@ -1,4 +1,3 @@
-
 from beanie import Document
 from marker.renderers.json import JSONBlockOutput
 

@@ -22,7 +22,7 @@ from app.schemas.response import (
 from app.schemas.section import Section, gather_section_hierarchies
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/doc", tags=["doc"])
+router = APIRouter(prefix="/document", tags=["document"])
 
 
 @router.post("/process")

@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "NexusNote"
     MONGO_SERVER: str = "localhost"
     MONGO_PORT: int = 27017
-    MONGO_DB: str = "pdf_contents"
+    MONGO_DB: str = "nexusnote"
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
             port=self.MONGO_PORT,
         )
 
-    LANCE_URI: str = "db/lancedb"
+    LANCE_URI: str = "lancedb/nexusnote"
     LANCE_TABLE_NAME: str = "vectorstore"
 
     EMBEDDINGS_CLS: type[JinaClipV2Embeddings] = JinaClipV2Embeddings

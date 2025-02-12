@@ -21,7 +21,6 @@ def init_lance_db():
 
 
 async def init_db():
-    # Initialize both databases.
     mongo_client = await init_mongo_db()
     lance_db_conn = init_lance_db()
     return {"mongo_db_client": mongo_client, "lance_db_conn": lance_db_conn}
