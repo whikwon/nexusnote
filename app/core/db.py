@@ -1,8 +1,8 @@
-import lancedb
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 
 import app.models as models
+import lancedb
 from app.core.config import settings
 
 
