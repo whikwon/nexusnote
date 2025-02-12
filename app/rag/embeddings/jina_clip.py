@@ -6,7 +6,10 @@ https://python.langchain.com/docs/how_to/custom_embeddings/
 from langchain_core.embeddings import Embeddings
 from transformers import AutoModel
 
+from app.rag.embeddings.registry import register_embedding_model
 
+
+@register_embedding_model("jina-clip-v2")
 class JinaClipV2Embeddings(Embeddings):
     name: str = "jina-clip-v2"
 
