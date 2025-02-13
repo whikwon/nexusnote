@@ -38,9 +38,9 @@ async def upload_document(payload: DocumentUploadRequest) -> UploadDocumentRespo
         f.write(content_bytes)
 
     document = Document(
-        file_id=file_id,
-        file_name=orig_file_name,
-        file_path=str(file_path.relative_to(settings.DOCUMENT_DIR_PATH)),
+        id=file_id,
+        name=orig_file_name,
+        path=str(file_path.relative_to(settings.DOCUMENT_DIR_PATH)),
     )
     await document.insert()
     return UploadDocumentResponse(
@@ -58,14 +58,14 @@ async def process_document(
     vector_store: LanceDB = app_state.vector_store
     file_id = payload.file_id
 
-    res = await Document.find_one({"file_id": file_id})
+    res = await Document.find_one({"id": file_id})
     if res is None:
         return ProcessDocumentResponse(
             status="fail", message="File not found in DB. Please add the file first."
         )
 
-    file_path = res.file_path
-    file_name = res.file_name
+    file_path = res.path
+    file_name = res.name
     pdf_path = settings.DOCUMENT_DIR_PATH / file_path
     logger.info(f"Starting PDF processing for file: {file_name}({file_id})")
 

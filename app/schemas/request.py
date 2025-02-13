@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, conlist
 
 
 class DocumentProcessRequest(BaseModel):
@@ -48,3 +48,11 @@ class UpdateConceptRequest(BaseModel):
     concept_id: str
     comment: str
     annotation_id: List[str] | None
+
+
+class CreateConceptLinkRequest(BaseModel):
+    concept_ids: conlist(str, min_length=2, max_length=2)
+
+
+class DeleteConceptLinkRequest(BaseModel):
+    link_id: str
