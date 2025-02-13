@@ -8,6 +8,7 @@ Before proceeding, ensure that you have the following installed:
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) – A necessary tool for syncing resources.
 - [ollama](https://ollama.com) - Required for local LLM, embedding models.
+- [MongoDB](https://www.mongodb.com/docs/manual/installation/) - Required for database operations.
 - Python (version 3.10 or higher) and the required dependencies for FastAPI.
 
 ## Installation
