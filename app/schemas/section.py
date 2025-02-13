@@ -1,9 +1,10 @@
 from bs4 import BeautifulSoup
+from langchain_core.documents import Document
 from pydantic import BaseModel
 
 from app.models.block import Block
 
-from .chunk import Chunk, ChunkMetadata
+from .chunk import ChunkMetadata
 
 
 class Section(BaseModel):
@@ -32,7 +33,7 @@ class Section(BaseModel):
             blocks=section_blocks,
         )
 
-    def to_chunks(self, size_limit=None):
+    def to_chunks(self, embedding_model, size_limit=None) -> list[Document]:
         """
         Convert the section into chunks
         """
@@ -52,9 +53,10 @@ class Section(BaseModel):
             section_hierarchy=self.section_hierarchy,
             chunk_id=i,
             block_ids=block_ids,
+            embedding_model=embedding_model,
         )
         page_content = text
-        chunk = Chunk(metadata=metadata.model_dump(), page_content=page_content)
+        chunk = Document(metadata=metadata.model_dump(), page_content=page_content)
         return [chunk]
 
 

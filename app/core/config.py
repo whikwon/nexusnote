@@ -7,7 +7,7 @@ from pydantic import AnyUrl, BeforeValidator, HttpUrl, computed_field
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.rag.embeddings.langchain import JinaClipV2Embeddings
+from app.rag.embeddings import JinaClipV2Embeddings, OllamaEmbeddings, OpenAIEmbeddings
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "NexusNote"
     MONGO_SERVER: str = "localhost"
     MONGO_PORT: int = 27017
-    MONGO_DB: str = "pdf_contents"
+    MONGO_DB: str = "nexusnote"
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -56,10 +56,10 @@ class Settings(BaseSettings):
             port=self.MONGO_PORT,
         )
 
-    LANCE_URI: str = "db/lancedb"
+    LANCE_URI: str = "lancedb/nexusnote"
     LANCE_TABLE_NAME: str = "vectorstore"
 
-    EMBEDDINGS_CLS: type[JinaClipV2Embeddings] = JinaClipV2Embeddings
+    EMBEDDINGS_MODEL_KEY: str = "jina-clip-v2"
     EMBEDDINGS_KWARGS: dict[str, Any] = {}
 
     LLM_CLS: type[Any] = OllamaLLM

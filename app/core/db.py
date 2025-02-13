@@ -1,8 +1,8 @@
-import lancedb
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 
 import app.models as models
+import lancedb
 from app.core.config import settings
 
 
@@ -21,7 +21,6 @@ def init_lance_db():
 
 
 async def init_db():
-    # Initialize both databases.
     mongo_client = await init_mongo_db()
     lance_db_conn = init_lance_db()
     return {"mongo_db_client": mongo_client, "lance_db_conn": lance_db_conn}
