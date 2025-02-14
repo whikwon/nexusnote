@@ -6,7 +6,7 @@ from motor.core import AgnosticDatabase
 
 from app.api import deps
 from app.core.config import settings
-from app.crud.document import document as crud_document
+from app.crud.crud_document import document as crud_document
 from app.models import Block, Document
 from app.rag.pdf_processors.marker import MarkerPDFProcessor, flatten_blocks
 from app.rag.prompts.base import get_rag_prompt

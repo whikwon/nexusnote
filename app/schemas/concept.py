@@ -4,11 +4,12 @@ from pydantic import BaseModel
 
 
 class ConceptCreate(BaseModel):
+    name: str
     comment: str
-    annotation_id: List[str] | None
+    annotation_ids: List[str] | None
 
 
 class ConceptUpdate(BaseModel):
-    concept_id: str
+    name: str
     comment: str
-    annotation_id: List[str] | None
+    annotation_ids: List[str] | None

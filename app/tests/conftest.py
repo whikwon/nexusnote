@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from typing import Generator
 
 import pytest
@@ -41,3 +42,21 @@ async def engine() -> Generator:
 def client(db) -> Generator:
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="session")
+def asset_dir():
+    return Path(__file__).parent / "assets"
+
+
+@pytest.fixture(scope="session")
+def pdf_path(asset_dir):
+    return asset_dir / "2501.00663v1.pdf"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def set_temp_document_dir(tmp_path_factory):
+    # Create a temporary directory for documents
+    temp_dir = tmp_path_factory.mktemp("documents")
+    settings.DOCUMENT_DIR_PATH = temp_dir
+    yield temp_dir

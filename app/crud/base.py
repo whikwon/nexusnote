@@ -62,7 +62,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return db_obj
 
     async def remove(self, engine: AIOEngine, *, id: int) -> ModelType:
-        obj = await self.model.get(id)
+        obj = await self.get(engine, id)
         if obj:
             await engine.delete(obj)
         return obj
