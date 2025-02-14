@@ -3,11 +3,15 @@ from typing import List
 from pydantic import BaseModel, conlist
 
 
-class DocumentProcessRequest(BaseModel):
+class GetDocumentRequest(BaseModel):
     file_id: str
 
 
-class DocumentUploadRequest(BaseModel):
+class ProcessDocumentRequest(BaseModel):
+    file_id: str
+
+
+class UploadDocumentRequest(BaseModel):
     file_name: str
     content: str  # base64 encoded
 
@@ -29,6 +33,7 @@ class DeleteAnnotationRequest(BaseModel):
     annotation_id: str
 
 
+# comment, 범위 모두 수정할 수 있도록 구현
 class UpdateAnnotationRequest(BaseModel):
     annotation_id: str
     comment: str

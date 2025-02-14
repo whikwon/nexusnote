@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.models import ConceptLink
+from app.models import Link
 from app.schemas.request import CreateConceptLinkRequest, DeleteConceptLinkRequest
 
 router = APIRouter(prefix="/link", tags=["link"])

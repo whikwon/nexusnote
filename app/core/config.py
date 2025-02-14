@@ -3,11 +3,8 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from langchain_ollama import OllamaLLM
-from pydantic import AnyUrl, BeforeValidator, HttpUrl, computed_field
-from pydantic_core import MultiHostUrl
+from pydantic import AnyUrl, BeforeValidator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from app.rag.embeddings import JinaClipV2Embeddings, OllamaEmbeddings, OpenAIEmbeddings
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -43,18 +40,8 @@ class Settings(BaseSettings):
         ]
 
     PROJECT_NAME: str = "NexusNote"
-    MONGO_SERVER: str = "localhost"
-    MONGO_PORT: int = 27017
-    MONGO_DB: str = "nexusnote"
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def MONGO_URI(self) -> HttpUrl:
-        return MultiHostUrl.build(
-            scheme="mongodb",
-            host=self.MONGO_SERVER,
-            port=self.MONGO_PORT,
-        )
+    MONGO_DATABASE: str = "nexusnote"
+    MONGO_DATABASE_URI: str = "mongodb://localhost:27017"
 
     LANCE_URI: str = "lancedb/nexusnote"
     LANCE_TABLE_NAME: str = "vectorstore"

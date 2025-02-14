@@ -1,11 +1,12 @@
 from uuid import uuid4
 
-from beanie import Document
-from pydantic import Field
+from odmantic import Field
+
+from app.db.base_class import Base
 
 
-class Annotation(Document):
-    id: str = Field(default_factory=lambda: str(uuid4()))
+class Annotation(Base):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_field=True)
     file_id: str
     page_number: int
     comment: str | None

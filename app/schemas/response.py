@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from app.models.block import Block
+from app.models import Annotation, Block, Concept, Document
 
 
 class RAGResponse(BaseModel):
@@ -24,3 +24,10 @@ class ProcessDocumentResponse(BaseModel):
     file_id: Optional[str] = None
     num_chunks: Optional[int] = None
     message: Optional[str] = None
+
+
+class GetDocumentResponse(BaseModel):
+    status: str
+    document: Document
+    annotations: List[Annotation]
+    concepts: List[Concept]
