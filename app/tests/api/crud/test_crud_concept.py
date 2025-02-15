@@ -52,7 +52,7 @@ async def test_remove_concept(engine: AIOEngine) -> None:
     link_in = LinkCreate(concept_ids=[concept_1.id, concept_2.id])
     link = await crud.link.create(engine, obj_in=link_in)
 
-    await crud.concept.remove(engine, id=concept_1.id)
+    await crud.concept.delete(engine, id=concept_1.id)
 
     # Check if the link is removed
     link = await crud.link.get(engine, link.id)

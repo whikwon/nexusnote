@@ -24,26 +24,26 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         with open(file_path, "wb") as f:
             f.write(content_bytes)
 
-        document = Document(
+        document = self.model(
             id=file_id,
             name=orig_file_name,
             path=str(file_path.relative_to(settings.DOCUMENT_DIR_PATH)),
         )
-        return await engine.save(document)
+        return await super().create(engine, obj_in=document)
 
     async def get_with_related(
-        self, engine: AIOEngine, file_id: str
+        self, engine: AIOEngine, id: str
     ) -> Tuple[Optional[Document], List[Annotation], List[Concept]]:
         """
         Retrieves a document by its file_id along with its associated annotations and concepts.
         """
         # Retrieve the document. Note: In ODMantic the primary key is stored as _id in MongoDB.
-        document = await engine.find_one(Document, {"_id": file_id})
+        document = await engine.find_one(Document, {"_id": id})
         if document is None:
             return None, [], []
 
         # Retrieve annotations associated with this document.
-        annotations = await engine.find(Annotation, {"file_id": file_id}).to_list()
+        annotations = await engine.find(Annotation, {"file_id": id})
 
         # Extract annotation IDs.
         annotation_ids = [annotation.id for annotation in annotations]
@@ -51,11 +51,11 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         # Retrieve concepts linked to the annotations.
         concepts = await engine.find(
             Concept, {"annotation_ids": {"$in": annotation_ids}}
-        ).to_list()
+        )
         return document, annotations, concepts
 
-    async def remove(self, engine: AIOEngine, id: str) -> Document:
-        document = super().remove(engine, id)
+    async def delete(self, engine: AIOEngine, id: str) -> Document:
+        document = super().delete(engine, id)
 
         # Remove the document file.
         document_path = settings.DOCUMENT_DIR_PATH / document.path

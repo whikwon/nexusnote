@@ -1,26 +1,49 @@
-from beanie import init_beanie
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor import core, motor_asyncio
+from odmantic import AIOEngine
+from pymongo.driver_info import DriverInfo
 
-import app.models as models
-import lancedb
+from app.__version__ import __version__
 from app.core.config import settings
 
-
-async def init_mongo_db():
-    client = AsyncIOMotorClient(str(settings.MONGO_URI))
-    all_models = [getattr(models, model) for model in models.__all__]
-    await init_beanie(
-        database=client.get_database(settings.MONGO_DB), document_models=all_models
-    )
-    return client
+DRIVER_INFO = DriverInfo(name="nexusnote", version=__version__)
 
 
-def init_lance_db():
-    lance_db_conn = lancedb.connect(settings.LANCE_URI)
-    return lance_db_conn
+class _MongoClientSingleton:
+    _instance = None
+    mongo_client: motor_asyncio.AsyncIOMotorClient | None
+    engine: AIOEngine | None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(_MongoClientSingleton, cls).__new__(cls)
+            cls._instance.mongo_client = motor_asyncio.AsyncIOMotorClient(
+                settings.MONGO_DATABASE_URI, driver=DRIVER_INFO
+            )
+            cls._instance.engine = AIOEngine(
+                client=cls._instance.mongo_client, database=settings.MONGO_DATABASE
+            )
+        return cls._instance
+
+    def get_engine(self):
+        # Create engine on demand with current database setting
+        if not self.engine or self.engine.database_name != settings.MONGO_DATABASE:
+            self.engine = AIOEngine(
+                client=self.mongo_client, database=settings.MONGO_DATABASE
+            )
+        return self.engine
+
+
+def get_mongodb_client() -> core.AgnosticDatabase:
+    return _MongoClientSingleton().mongo_client[settings.MONGO_DATABASE]
+
+
+def get_mongodb_engine() -> AIOEngine:
+    return _MongoClientSingleton().get_engine()
+
+
+async def ping():
+    await get_mongodb_client().command("ping")
 
 
 async def init_db():
-    mongo_client = await init_mongo_db()
-    lance_db_conn = init_lance_db()
-    return {"mongo_db_client": mongo_client, "lance_db_conn": lance_db_conn}
+    _MongoClientSingleton()

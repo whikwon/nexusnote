@@ -7,8 +7,8 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.core.db import _MongoClientSingleton, get_mongodb_client, get_mongodb_engine
 from app.db.init_db import init_db
-from app.db.session import MongoDatabase, _MongoClientSingleton, get_engine
 from app.main import app
 
 TEST_DATABASE = "test"
@@ -27,7 +27,7 @@ def event_loop():
 
 @pytest_asyncio.fixture(scope="session")
 async def db() -> Generator:
-    db = MongoDatabase()
+    db = get_mongodb_client()
     _MongoClientSingleton.instance.mongo_client.get_io_loop = asyncio.get_event_loop
     await init_db(db)
     yield db
@@ -35,7 +35,7 @@ async def db() -> Generator:
 
 @pytest_asyncio.fixture(scope="session")
 async def engine() -> Generator:
-    yield get_engine()  # This will now use the TEST_DATABASE name
+    yield get_mongodb_engine()  # This will now use the TEST_DATABASE name
 
 
 @pytest.fixture(scope="session")

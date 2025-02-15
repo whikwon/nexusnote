@@ -1,11 +1,9 @@
 from typing import List
 from uuid import uuid4
 
-from odmantic import Field
-
-from app.db.base_class import Base
+from odmantic import Field, Model
 
 
-class Link(Base):
+class Link(Model):
     id: str = Field(default_factory=lambda: str(uuid4()), primary_field=True)
     concept_ids: List[str]

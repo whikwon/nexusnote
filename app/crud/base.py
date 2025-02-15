@@ -1,13 +1,11 @@
-from typing import Any, Dict, Generic, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, Type, TypeVar, Union
 
 from fastapi.encoders import jsonable_encoder
-from odmantic import AIOEngine
+from odmantic import AIOEngine, Model
+from odmantic.query import QueryExpression
 from pydantic import BaseModel
 
-from app.core.config import settings
-from app.db.base_class import Base
-
-ModelType = TypeVar("ModelType", bound=Base)
+ModelType = TypeVar("ModelType", bound=Model)
 CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 
@@ -28,19 +26,22 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return await engine.find_one(self.model, self.model.id == id)
 
     async def get_multi(
-        self, engine: AIOEngine, *, page: int = 0, page_break: bool = False
-    ) -> list[ModelType]:  # noqa
-        offset = (
-            {"skip": page * settings.MULTI_MAX, "limit": settings.MULTI_MAX}
-            if page_break
-            else {}
-        )  # noqa
-        return await engine.find(self.model, **offset)
+        self,
+        engine: AIOEngine,
+        *queries: Union[QueryExpression, Dict, bool],
+    ) -> List[ModelType]:  # noqa
+        return await engine.find(self.model, *queries)
 
     async def create(self, engine: AIOEngine, *, obj_in: CreateSchemaType) -> ModelType:  # noqa
         obj_in_data = jsonable_encoder(obj_in)
         db_obj = self.model(**obj_in_data)  # type: ignore
         return await engine.save(db_obj)
+
+    async def create_multi(
+        self, engine: AIOEngine, *, objs_in: List[CreateSchemaType]
+    ) -> List[ModelType]:
+        db_objs = [self.model(**jsonable_encoder(obj_in)) for obj_in in objs_in]
+        return await engine.save_all(db_objs)
 
     async def update(
         self,
@@ -61,7 +62,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         await engine.save(db_obj)
         return db_obj
 
-    async def remove(self, engine: AIOEngine, *, id: int) -> ModelType:
+    async def delete(self, engine: AIOEngine, *, id: int) -> ModelType:
         obj = await self.get(engine, id)
         if obj:
             await engine.delete(obj)

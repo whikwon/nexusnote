@@ -1,21 +1,23 @@
+from typing import List
+
 from bs4 import BeautifulSoup
 from langchain_core.documents import Document
 from pydantic import BaseModel
 
-from app.models.block import Block
+from app.schemas import BlockBase
 
 from .chunk import ChunkMetadata
 
 
-class Section(BaseModel):
+class SectionBase(BaseModel):
     file_id: str
     section_hierarchy: dict[str, str]
-    blocks: list[Block]
+    blocks: list[BlockBase]
 
     @staticmethod
     def from_blocks(
-        blocks: list[Block], section_hierarchy: dict[str, str]
-    ) -> "Section":
+        blocks: list[BlockBase], section_hierarchy: dict[str, str]
+    ) -> "SectionBase":
         """
         Create a section from a list of blocks
         """
@@ -27,13 +29,13 @@ class Section(BaseModel):
                 and section_hierarchy.items() <= block.section_hierarchy.items()
             ):
                 section_blocks.append(block)
-        return Section(
+        return SectionBase(
             file_id=file_id,
             section_hierarchy=section_hierarchy,
             blocks=section_blocks,
         )
 
-    def to_chunks(self, embedding_model, size_limit=None) -> list[Document]:
+    def to_chunks(self, embedding_model, size_limit=None) -> List[Document]:
         """
         Convert the section into chunks
         """
@@ -61,7 +63,7 @@ class Section(BaseModel):
 
 
 def gather_section_hierarchies(
-    blocks: list[Block], levels: list[str]
+    blocks: list[BlockBase], levels: list[str]
 ) -> list[dict[str, str]]:
     required_keys = set(levels)
     seen = set()  # to store frozenset representations for deduplication

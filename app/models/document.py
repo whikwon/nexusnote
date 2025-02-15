@@ -2,12 +2,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from odmantic import Field
-
-from app.db.base_class import Base
+from odmantic import Field, Model
 
 
-class Document(Base):
+class Document(Model):
     # Unique identifier for the file, assigned at upload time (immutable).
     id: str = Field(default_factory=lambda: str(uuid4()), primary_field=True)
     name: str  # User-visible name of the file, which can be updated or changed on the frontend.
