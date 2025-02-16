@@ -28,7 +28,7 @@ def event_loop():
 @pytest_asyncio.fixture(scope="session")
 async def db() -> Generator:
     db = get_mongodb_client()
-    _MongoClientSingleton.instance.mongo_client.get_io_loop = asyncio.get_event_loop
+    _MongoClientSingleton._instance.mongo_client.get_io_loop = asyncio.get_event_loop
     await init_db(db)
     yield db
 

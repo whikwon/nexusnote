@@ -12,7 +12,7 @@ router = APIRouter(prefix="/link", tags=["link"])
 
 @router.post("/create")
 async def create_concept_link(
-    *, engine: AIOEngine = Depends(deps.get_engine), link_in: schemas.LinkCreate
+    *, engine: AIOEngine = Depends(deps.engine_generator), link_in: schemas.LinkCreate
 ) -> Any:
     link = await crud_link.create(engine, obj_in=link_in)
     return link

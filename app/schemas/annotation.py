@@ -9,6 +9,7 @@ class AnnotationCreate(BaseModel):
 
 
 class AnnotationUpdate(BaseModel):
+    id: str
     comment: str
     # 범위
 

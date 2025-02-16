@@ -13,7 +13,7 @@ router = APIRouter(prefix="/annotation", tags=["annotation"])
 @router.post("/create", response_model=schemas.AnnotationBase)
 async def create_annotation(
     *,
-    engine: AIOEngine = Depends(deps.get_engine),
+    engine: AIOEngine = Depends(deps.engine_generator),
     annotation_in: schemas.AnnotationCreate,
 ) -> Any:
     annotation = await crud_annotation.create(engine, obj_in=annotation_in)
@@ -23,7 +23,7 @@ async def create_annotation(
 @router.post("/delete", response_model=schemas.Msg)
 async def delete_annotation(
     *,
-    engine: AIOEngine = Depends(deps.get_engine),
+    engine: AIOEngine = Depends(deps.engine_generator),
     id: str = Body(..., embed=True),
 ) -> Any:
     await crud_annotation.delete(engine, id)
@@ -33,8 +33,11 @@ async def delete_annotation(
 @router.post("/update", response_model=schemas.AnnotationBase)
 async def update_annotation(
     *,
-    engine: AIOEngine = Depends(deps.get_engine),
+    engine: AIOEngine = Depends(deps.engine_generator),
     annotation_in: schemas.AnnotationUpdate,
 ) -> Any:
-    annotation = await crud_annotation.update(engine, obj_in=annotation_in)
+    db_obj = await crud_annotation.get(engine, annotation_in.id)
+    annotation = await crud_annotation.update(
+        engine, db_obj=db_obj, obj_in=annotation_in
+    )
     return annotation

@@ -1,7 +1,7 @@
 import logging
 from typing import Any, List, Tuple
 
-from fastapi import APIRouter, Body, Depends, Request
+from fastapi import APIRouter, Body, Depends
 from langchain_community.vectorstores import LanceDB
 from odmantic import AIOEngine
 
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/document", tags=["document"])
 )
 async def get_document(
     *,
-    engine: AIOEngine = Depends(deps.get_engine),
+    engine: AIOEngine = Depends(deps.engine_generator),
     id: str = Body(..., embed=True),
 ) -> Any:
     document, annotations, concepts = await crud_document.get_with_related(engine, id)
@@ -35,17 +35,20 @@ async def get_document(
 
 @router.post("/upload", response_model=schemas.DocumentBase)
 async def upload_document(
-    *, engine: AIOEngine = Depends(deps.get_engine), document_in: schemas.DocumentCreate
+    *,
+    engine: AIOEngine = Depends(deps.engine_generator),
+    document_in: schemas.DocumentCreate,
 ) -> Any:
     document = await crud_document.create(engine, obj_in=document_in)
+    print(document)
     return document
 
 
 @router.post("/process", response_model=schemas.Msg)
 async def process_document(
     *,
-    engine: AIOEngine = Depends(deps.get_engine),
-    vector_store: LanceDB = Depends(deps.get_vector_store),
+    engine: AIOEngine = Depends(deps.engine_generator),
+    vector_store: LanceDB = Depends(deps.vector_store_generator),
     id: str = Body(..., embed=True),
 ) -> Any:
     document = await crud_document.get(engine, id)
@@ -91,9 +94,9 @@ async def process_document(
 @router.post("/rag", response_model=schemas.RAGResponse)
 async def retrieve_and_respond(
     *,
-    engine: AIOEngine = Depends(deps.get_engine),
-    vector_store: LanceDB = Depends(deps.get_vector_store),
-    llm: Any = Depends(deps.get_llm),
+    engine: AIOEngine = Depends(deps.engine_generator),
+    vector_store: LanceDB = Depends(deps.vector_store_generator),
+    llm: Any = Depends(deps.llm_generator),
     rag_request: schemas.RAGRequest,
 ) -> Any:
     file_id = rag_request.file_id

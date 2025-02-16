@@ -24,7 +24,7 @@ class _VectorStoreSingleton:
         return cls._instance
 
 
-def get_vector_store() -> LanceDB:
+def get_lancedb_vector_store() -> LanceDB:
     return _VectorStoreSingleton().vector_store
 
 

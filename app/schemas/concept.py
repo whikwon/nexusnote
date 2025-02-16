@@ -10,6 +10,7 @@ class ConceptCreate(BaseModel):
 
 
 class ConceptUpdate(BaseModel):
+    id: str
     name: str
     comment: str
     annotation_ids: List[str] = Field(default_factory=list)

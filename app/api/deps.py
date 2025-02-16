@@ -2,10 +2,10 @@ from typing import Generator
 
 from app.core.db import get_mongodb_client, get_mongodb_engine
 from app.core.llm import get_llm
-from app.core.vector_store import get_vector_store
+from app.core.vector_store import get_lancedb_vector_store
 
 
-def get_db() -> Generator:
+def db_generator() -> Generator:
     try:
         db = get_mongodb_client()
         yield db
@@ -13,7 +13,7 @@ def get_db() -> Generator:
         pass
 
 
-def get_engine() -> Generator:
+def engine_generator() -> Generator:
     try:
         engine = get_mongodb_engine()
         yield engine
@@ -21,15 +21,15 @@ def get_engine() -> Generator:
         pass
 
 
-def get_vector_store() -> Generator:
+def vector_store_generator() -> Generator:
     try:
-        vector_store = get_vector_store()
+        vector_store = get_lancedb_vector_store()
         yield vector_store
     finally:
         pass
 
 
-def get_llm() -> Generator:
+def llm_generator() -> Generator:
     try:
         llm = get_llm()
         yield llm
