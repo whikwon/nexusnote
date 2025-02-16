@@ -1,7 +1,7 @@
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DocumentCreate(BaseModel):
@@ -11,7 +11,8 @@ class DocumentCreate(BaseModel):
 
 class DocumentUpdate(BaseModel):
     name: str = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DocumentBase(BaseModel):
@@ -19,5 +20,6 @@ class DocumentBase(BaseModel):
     id: str
     name: str  # User-visible name of the file, which can be updated or changed on the frontend.
     path: str  # Relative path to the file within the storage directory.
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
     created_at: datetime
+    updated_at: datetime

@@ -1,6 +1,5 @@
 import base64
 from pathlib import Path
-from typing import List, Optional, Tuple
 from uuid import uuid4
 
 from odmantic import AIOEngine
@@ -33,7 +32,7 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
 
     async def get_with_related(
         self, engine: AIOEngine, id: str
-    ) -> Tuple[Optional[Document], List[Annotation], List[Concept]]:
+    ) -> tuple[Document | None, list[Annotation], list[Concept]]:
         """
         Retrieves a document by its file_id along with its associated annotations and concepts.
         """

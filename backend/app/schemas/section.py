@@ -1,4 +1,3 @@
-from typing import List
 
 from bs4 import BeautifulSoup
 from langchain_core.documents import Document
@@ -35,7 +34,7 @@ class SectionBase(BaseModel):
             blocks=section_blocks,
         )
 
-    def to_chunks(self, embedding_model, size_limit=None) -> List[Document]:
+    def to_chunks(self, embedding_model, size_limit=None) -> list[Document]:
         """
         Convert the section into chunks
         """

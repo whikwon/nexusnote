@@ -1,8 +1,8 @@
 import asyncio
 import os
+from collections.abc import Generator
 from pathlib import Path
 from shutil import rmtree
-from typing import Generator
 
 import pytest
 import pytest_asyncio

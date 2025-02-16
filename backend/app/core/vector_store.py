@@ -1,4 +1,3 @@
-from typing import Any
 
 from langchain_community.vectorstores import LanceDB
 

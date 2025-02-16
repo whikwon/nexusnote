@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, List, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, TypeVar, Union
 
 from fastapi.encoders import jsonable_encoder
 from odmantic import AIOEngine, Model
@@ -11,7 +11,7 @@ UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 
 
 class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
-    def __init__(self, model: Type[ModelType]):
+    def __init__(self, model: type[ModelType]):
         """
         CRUD object with default methods to Create, Read, Update, Delete (CRUD).
 
@@ -28,7 +28,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     async def get_multi(
         self,
         engine: AIOEngine,
-        *queries: Union[QueryExpression, Dict, bool],
+        *queries: QueryExpression | dict | bool,
     ) -> List[ModelType]:  # noqa
         return await engine.find(self.model, *queries)
 
@@ -38,8 +38,8 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return await engine.save(db_obj)
 
     async def create_multi(
-        self, engine: AIOEngine, *, objs_in: List[CreateSchemaType]
-    ) -> List[ModelType]:
+        self, engine: AIOEngine, *, objs_in: list[CreateSchemaType]
+    ) -> list[ModelType]:
         db_objs = [self.model(**jsonable_encoder(obj_in)) for obj_in in objs_in]
         return await engine.save_all(db_objs)
 

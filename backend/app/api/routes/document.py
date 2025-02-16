@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Tuple
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 from langchain_community.vectorstores import LanceDB
@@ -20,8 +20,8 @@ router = APIRouter(prefix="/document", tags=["document"])
 
 @router.post(
     "/get",
-    response_model=Tuple[
-        schemas.DocumentBase, List[schemas.AnnotationBase], List[schemas.ConceptBase]
+    response_model=tuple[
+        schemas.DocumentBase, list[schemas.AnnotationBase], list[schemas.ConceptBase]
     ],
 )
 async def get_document(

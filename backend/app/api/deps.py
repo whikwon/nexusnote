@@ -1,4 +1,4 @@
-from typing import Generator
+from collections.abc import Generator
 
 from app.core.db import get_mongodb_client, get_mongodb_engine
 from app.core.llm import get_llm

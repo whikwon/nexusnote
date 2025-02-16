@@ -7,7 +7,7 @@ from app.api.main import api_router
 from app.core.config import settings
 from app.core.db import init_db
 from app.core.embeddings import get_embeddings, init_embeddings
-from app.core.llm import get_llm, init_llm
+from app.core.llm import init_llm
 from app.core.vector_store import init_vector_store
 
 

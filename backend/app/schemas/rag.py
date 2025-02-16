@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -14,6 +13,6 @@ class RAGRequest(BaseModel):
 class RAGResponse(BaseModel):
     status: str
     response: str
-    question: Optional[str] = None
-    answer: Optional[int] = None
-    section: List[Block] = None
+    question: str | None = None
+    answer: int | None = None
+    section: list[Block] = None
