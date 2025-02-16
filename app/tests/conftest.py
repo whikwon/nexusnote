@@ -1,5 +1,7 @@
 import asyncio
+import os
 from pathlib import Path
+from shutil import rmtree
 from typing import Generator
 
 import pytest
@@ -8,11 +10,13 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.db import _MongoClientSingleton, get_mongodb_client, get_mongodb_engine
-from app.db.init_db import init_db
 from app.main import app
 
-TEST_DATABASE = "test"
-settings.MONGO_DATABASE = TEST_DATABASE
+TEST_MONGO_DATABASE = "test"
+settings.MONGO_DATABASE = TEST_MONGO_DATABASE
+
+TEST_LANCE_URI = "lancedb/test"
+settings.LANCE_URI = TEST_LANCE_URI
 
 
 @pytest.fixture(scope="session")
@@ -29,8 +33,8 @@ def event_loop():
 async def db() -> Generator:
     db = get_mongodb_client()
     _MongoClientSingleton._instance.mongo_client.get_io_loop = asyncio.get_event_loop
-    await init_db(db)
     yield db
+    await db.client.drop_database(TEST_MONGO_DATABASE)
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -60,3 +64,9 @@ def set_temp_document_dir(tmp_path_factory):
     temp_dir = tmp_path_factory.mktemp("documents")
     settings.DOCUMENT_DIR_PATH = temp_dir
     yield temp_dir
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Hook to run after the entire test session finishes."""
+    if os.path.exists(TEST_LANCE_URI):
+        rmtree(TEST_LANCE_URI, ignore_errors=True)
