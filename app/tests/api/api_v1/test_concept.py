@@ -4,7 +4,9 @@ from odmantic import AIOEngine
 
 from app.core.config import settings
 from app.crud import concept as crud_concept
+from app.crud import link as crud_link
 from app.schemas.concept import ConceptCreate
+from app.schemas.link import LinkCreate
 
 
 @pytest.mark.asyncio
@@ -49,3 +51,30 @@ async def test_update_concept(engine: AIOEngine, client: TestClient):
     assert concept_updated["name"] == "concept updated"
     assert concept_updated["comment"] == "comment updated"
     assert concept_updated["annotation_ids"] == ["annotation_id_1", "annotation_id_2"]
+
+
+@pytest.mark.asyncio
+async def test_delete_concept(engine: AIOEngine, client: TestClient):
+    concept_1 = await crud_concept.create(
+        engine,
+        obj_in=ConceptCreate(
+            name="concept_1", comment="comment_1", annotation_ids=["annotation_id_1"]
+        ),
+    )
+    concept_2 = await crud_concept.create(
+        engine,
+        obj_in=ConceptCreate(
+            name="concept_2", comment="comment_2", annotation_ids=["annotation_id_2"]
+        ),
+    )
+    link = await crud_link.create(
+        engine, obj_in=LinkCreate(concept_ids=[concept_1.id, concept_2.id])
+    )
+
+    res = client.post(
+        f"{settings.API_V1_STR}/concept/delete",
+        json={"id": concept_1.id},
+    )
+    assert res.status_code == 200
+    assert res.json()["msg"] == "Concept deleted"
+    assert await crud_link.get(engine, id=link.id) is None

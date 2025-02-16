@@ -26,7 +26,7 @@ async def delete_concept(
     engine: AIOEngine = Depends(deps.engine_generator),
     id: str = Body(..., embed=True),
 ) -> Any:
-    await crud_concept.delete(engine, id)
+    await crud_concept.delete(engine, id=id)
     return {"msg": "Concept deleted"}
 
 
