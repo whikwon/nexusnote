@@ -47,7 +47,7 @@ async def test_update_concept(engine: AIOEngine, client: TestClient):
     )
     assert res.status_code == 200
     concept_updated = res.json()
-    assert concept.id == concept_updated["id"]
+    assert concept_updated["id"] == concept.id
     assert concept_updated["name"] == "concept updated"
     assert concept_updated["comment"] == "comment updated"
     assert concept_updated["annotation_ids"] == ["annotation_id_1", "annotation_id_2"]
@@ -76,5 +76,5 @@ async def test_delete_concept(engine: AIOEngine, client: TestClient):
         json={"id": concept_1.id},
     )
     assert res.status_code == 200
-    assert res.json()["msg"] == "Concept deleted"
+    assert res.json()["msg"] == "Concept deleted successfully."
     assert await crud_link.get(engine, id=link.id) is None

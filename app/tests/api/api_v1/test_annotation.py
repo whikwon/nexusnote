@@ -17,8 +17,9 @@ async def test_create_annotation(pdf_path: Path, engine: AIOEngine, client: Test
     with open(pdf_path, "rb") as f:
         file_bytes = f.read()
     content = base64.b64encode(file_bytes).decode("utf-8")
-    document_in = DocumentCreate(name="name", content=content)
-    document = await crud_document.create(engine, obj_in=document_in)
+    document = await crud_document.create(
+        engine, obj_in=DocumentCreate(name="name", content=content)
+    )
 
     res = client.post(
         f"{settings.API_V1_STR}/annotation/create",
@@ -34,10 +35,10 @@ async def test_create_annotation(pdf_path: Path, engine: AIOEngine, client: Test
 
 @pytest.mark.asyncio
 async def test_update_annotation(engine: AIOEngine, client: TestClient):
-    annotation_in = AnnotationCreate(
-        file_id="file_id", page_number=0, comment="comment"
+    annotation = await crud_annotation.create(
+        engine,
+        obj_in=AnnotationCreate(file_id="file_id", page_number=0, comment="comment"),
     )
-    annotation = await crud_annotation.create(engine, obj_in=annotation_in)
 
     res = client.post(
         f"{settings.API_V1_STR}/annotation/update",
@@ -45,7 +46,7 @@ async def test_update_annotation(engine: AIOEngine, client: TestClient):
     )
     assert res.status_code == 200
     annotation_updated = res.json()
-    assert annotation.id == annotation_updated["id"]
-    assert annotation["file_id"] == "file_id"
-    assert annotation["page_number"] == 0
-    assert annotation["comment"] == "comment updated"
+    assert annotation_updated["id"] == annotation.id
+    assert annotation_updated["file_id"] == "file_id"
+    assert annotation_updated["page_number"] == 0
+    assert annotation_updated["comment"] == "comment updated"

@@ -26,6 +26,7 @@ async def test_update_concept(engine: AIOEngine) -> None:
     concept = await crud_concept.create(engine, obj_in=concept_in)
 
     concept_in_update = ConceptUpdate(
+        id=concept.id,
         name="concept updated",
         comment="comment updated",
         annotation_ids=["annotation_id_1", "annotation_id_2"],

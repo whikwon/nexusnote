@@ -40,8 +40,17 @@ async def upload_document(
     document_in: schemas.DocumentCreate,
 ) -> Any:
     document = await crud_document.create(engine, obj_in=document_in)
-    print(document)
     return document
+
+
+@router.post("/delete", response_model=schemas.Msg)
+async def delete_document(
+    *,
+    engine: AIOEngine = Depends(deps.engine_generator),
+    id: str = Body(..., embed=True),
+) -> Any:
+    await crud_document.delete(engine, id)
+    return {"msg": "File deleted successfully."}
 
 
 @router.post("/process", response_model=schemas.Msg)

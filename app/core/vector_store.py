@@ -1,3 +1,5 @@
+from typing import Any
+
 from langchain_community.vectorstores import LanceDB
 
 import lancedb
@@ -10,8 +12,13 @@ class _VectorStoreSingleton:
     connection = DBConnection | None
     vector_store = LanceDB | None
 
-    def __new__(cls, embeddings, table_name):
+    def __new__(cls, embeddings=None, table_name=None):
         if cls._instance is None:
+            if embeddings is None or table_name is None:
+                raise ValueError(
+                    "Please provide both embeddings and table_name for initialization."
+                )
+
             cls._instance = super(_VectorStoreSingleton, cls).__new__(cls)
             connection = lancedb.connect(settings.LANCE_URI)
             cls._instance.connection = connection

@@ -27,7 +27,7 @@ async def delete_concept(
     id: str = Body(..., embed=True),
 ) -> Any:
     await crud_concept.delete(engine, id=id)
-    return {"msg": "Concept deleted"}
+    return {"msg": "Concept deleted successfully."}
 
 
 @router.post("/update", response_model=schemas.ConceptBase)

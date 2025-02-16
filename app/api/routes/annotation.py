@@ -27,7 +27,7 @@ async def delete_annotation(
     id: str = Body(..., embed=True),
 ) -> Any:
     await crud_annotation.delete(engine, id)
-    return {"msg": "Annotation deleted"}
+    return {"msg": "Annotation deleted successfully."}
 
 
 @router.post("/update", response_model=schemas.AnnotationBase)

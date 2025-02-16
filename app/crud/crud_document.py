@@ -55,15 +55,33 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         return document, annotations, concepts
 
     async def delete(self, engine: AIOEngine, id: str) -> Document:
-        document = super().delete(engine, id)
+        document = await super().delete(engine, id=id)
 
         # Remove the document file.
         document_path = settings.DOCUMENT_DIR_PATH / document.path
         document_path.unlink()
 
-        # Remove annotations
-        annotations = await engine.remove(Annotation, {"file_id": id})
-        return document, annotations
+        # Find annotations associated with the document so we can later remove their references.
+        annotations = await engine.find(Annotation, {"file_id": id})
+        annotation_ids = [annotation.id for annotation in annotations]
+
+        # Update each Concept that references any of the deleted annotations.
+        if annotation_ids:
+            # Remove all annotations for the document.
+            await engine.remove(Annotation, {"file_id": id})
+
+            # Find all concepts that contain any of the annotation_ids.
+            concepts = await engine.find(
+                Concept, {"annotation_ids": {"$in": annotation_ids}}
+            )
+            for concept in concepts:
+                # Filter out the deleted annotation ids.
+                concept.annotation_ids = [
+                    aid for aid in concept.annotation_ids if aid not in annotation_ids
+                ]
+                await engine.save(concept)
+
+        return document
 
 
 document = CRUDDocument(Document)
