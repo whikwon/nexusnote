@@ -6,8 +6,8 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.core.config import settings
 from app.core.db import init_db
-from app.core.embeddings import init_embeddings
-from app.core.llm import init_llm
+from app.core.embeddings import get_embeddings, init_embeddings
+from app.core.llm import get_llm, init_llm
 from app.core.vector_store import init_vector_store
 
 
@@ -16,24 +16,10 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 
 async def lifespan(app: FastAPI):
-    db = await init_db()
-    lance_db_conn = db["lance_db_conn"]
-    mongo_db_client = db["mongo_db_client"]
-
-    embeddings = init_embeddings()
-    llm = init_llm()
-    vector_store = init_vector_store(
-        connection=lance_db_conn,
-        embeddings=embeddings,
-        table_name=settings.LANCE_TABLE_NAME,
-    )
-
-    # consider microservice
-    app.state.lance_db_conn = lance_db_conn
-    app.state.mongo_db_client = mongo_db_client
-    app.state.embeddings = embeddings
-    app.state.llm = llm
-    app.state.vector_store = vector_store
+    await init_db()
+    init_embeddings()
+    init_llm()
+    init_vector_store(get_embeddings(), settings.LANCE_TABLE_NAME)
     yield
 
 

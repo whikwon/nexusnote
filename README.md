@@ -42,6 +42,16 @@ gunicorn -c gunicorn_conf.py main:app
 
 This command will start the application using Gunicorn, which is well-suited for production deployments.
 
+## Testing
+
+### Running the Tests
+
+You can execute the tests using the provided script:
+
+```
+./scripts/test.sh
+```
+
 ## Additional Resources
 
 For further information and examples, consider reviewing the following references:
