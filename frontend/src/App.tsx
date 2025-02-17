@@ -1,26 +1,26 @@
 import { useState, useRef, useEffect } from "react";
 import React from "react";
 import {
-    Viewer,
-    Worker,
-    Button,
-    Position,
-    PrimaryButton,
-    Tooltip,
+  Viewer,
+  Worker,
+  Button,
+  Position,
+  PrimaryButton,
+  Tooltip,
 } from "@react-pdf-viewer/core";
 import "@react-pdf-viewer/core/lib/styles/index.css";
 import {
-    highlightPlugin,
-    HighlightArea,
-    MessageIcon,
-    RenderHighlightContentProps,
-    RenderHighlightsProps,
-    RenderHighlightTargetProps,
+  highlightPlugin,
+  HighlightArea,
+  MessageIcon,
+  RenderHighlightContentProps,
+  RenderHighlightsProps,
+  RenderHighlightTargetProps,
 } from "@react-pdf-viewer/highlight";
 import "@react-pdf-viewer/highlight/lib/styles/index.css";
 
 import { searchPlugin } from "@react-pdf-viewer/search";
-import { bookmarkPlugin } from '@react-pdf-viewer/bookmark';
+import { bookmarkPlugin } from "@react-pdf-viewer/bookmark";
 
 import UpdateElectron from "@/components/update";
 import "./App.css";
@@ -32,43 +32,40 @@ import "@react-pdf-viewer/toolbar/lib/styles/index.css";
 
 // Dummy icon for the sidebar toggle. You can replace it with any icon component.
 const MenuIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 20 20">
-        <rect x="2" y="4" width="16" height="2" fill="currentColor" />
-        <rect x="2" y="9" width="16" height="2" fill="currentColor" />
-        <rect x="2" y="14" width="16" height="2" fill="currentColor" />
-    </svg>
+  <svg width="20" height="20" viewBox="0 0 20 20">
+    <rect x="2" y="4" width="16" height="2" fill="currentColor" />
+    <rect x="2" y="9" width="16" height="2" fill="currentColor" />
+    <rect x="2" y="14" width="16" height="2" fill="currentColor" />
+  </svg>
 );
 
 // Add this custom UploadIcon component near the MenuIcon component
 const UploadIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path 
-      d="M11 14.9861C11 15.5384 11.4477 15.9861 12 15.9861C12.5523 15.9861 13 15.5384 13 14.9861V7.82831L16.2428 11.0711L17.657 9.65685L12 4L6.34315 9.65685L7.75736 11.0711L11 7.82831V14.9861Z" 
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M11 14.9861C11 15.5384 11.4477 15.9861 12 15.9861C12.5523 15.9861 13 15.5384 13 14.9861V7.82831L16.2428 11.0711L17.657 9.65685L12 4L6.34315 9.65685L7.75736 11.0711L11 7.82831V14.9861Z"
       fill="currentColor"
     />
-    <path 
-      d="M4 14H6V18H18V14H20V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V14Z" 
+    <path
+      d="M4 14H6V18H18V14H20V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V14Z"
       fill="currentColor"
     />
   </svg>
 );
 
-// Add these interfaces near the top of the file
 interface AnnotationBase {
   id: string;
-  content: string;
-  highlightAreas: HighlightArea[];
-  quote: string;
-  image?: string;
-  comment?: string;
-}
-
-interface DocumentBase {
-  id: string;
-  name: string;
-  content_type: string;
-  path: string;
-  metadata: Record<string, any>;
+  file_id: string;
+  highlight_areas: HighlightArea[];
+  created_at: string;
+  updated_at: string;
+  comment: string;
 }
 
 // Add this interface near other interfaces
@@ -82,22 +79,22 @@ interface ConceptCreate {
 function App() {
   // ===== Note related interfaces and state =====
   interface Note {
-    id: number;
-    content: string;
-    highlightAreas: HighlightArea[];
+    id: string;
+    file_id: string;
+    comment: string;
+    highlight_areas: HighlightArea[];
     quote: string;
-    image?: string;
-    comment?: string;
   }
 
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState<Note[]>([]);
   const noteEles = useRef(new Map<number, HTMLElement>());
-  const noteIdRef = useRef(0);
 
   // ===== Left sidebar state (Notes/Thumbnails/Bookmarks) =====
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [activeTab, setActiveTab] = useState<"notes" | "thumbnails" | "bookmarks">("notes");
+  const [activeTab, setActiveTab] = useState<
+    "notes" | "thumbnails" | "bookmarks"
+  >("notes");
 
   // ===== Concept (Zettelkasten permanent note) related interfaces and state =====
   interface Concept {
@@ -111,7 +108,6 @@ function App() {
 
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [activeConcept, setActiveConcept] = useState<Concept | null>(null);
-  const conceptIdRef = useRef(0);
 
   // Local state for concept creation and inputs
   const [newConceptTitle, setNewConceptTitle] = useState("");
@@ -176,19 +172,45 @@ function App() {
         <div style={{ display: "flex", fontSize: "1.0rem" }}>
           <div style={{ marginRight: "8px" }}>
             <PrimaryButton
-              onClick={() => {
+              onClick={async () => {
                 if (message !== "") {
-                  const newId = noteIdRef.current + 1;
-                  noteIdRef.current = newId;
-                  const note: Note = {
-                    id: newId,
-                    content: message,
-                    highlightAreas: props.highlightAreas,
-                    quote: props.selectedText,
-                  };
-                  setNotes((prevNote) => [...prevNote, note]);
-                  setMessage("");
-                  props.cancel();
+                  try {
+                    const response = await fetch(
+                      "http://localhost:8000/api/v1/annotation/create",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          file_id: documentMetadata.id,
+                          comment: message,
+                          highlight_areas: props.highlightAreas,
+                          quote: props.selectedText,
+                        }),
+                      }
+                    );
+
+                    if (!response.ok) {
+                      throw new Error("Failed to create annotation");
+                    }
+
+                    const responseJson = await response.json();
+                    const newNote: Note = {
+                      id: responseJson.id,
+                      file_id: responseJson.file_id,
+                      comment: responseJson.comment,
+                      highlight_areas: responseJson.highlight_areas,
+                      quote: responseJson.quote,
+                    };
+                    console.log(newNote);
+                    setNotes((prevNotes) => [...prevNotes, newNote]);
+                    setMessage("");
+                    props.cancel();
+                  } catch (error) {
+                    console.error("Error creating annotation:", error);
+                    alert("Failed to create annotation. Please try again.");
+                  }
                 }
               }}
             >
@@ -219,7 +241,7 @@ function App() {
     <div>
       {notes.map((note) => (
         <React.Fragment key={note.id}>
-          {note.highlightAreas
+          {note.highlight_areas
             .filter((area) => area.pageIndex === props.pageIndex)
             .map((area, idx) => (
               <div
@@ -255,8 +277,26 @@ function App() {
   const { Thumbnails } = thumbnailPluginInstance;
   const { Toolbar } = toolbarPluginInstance;
 
-  const deleteNote = (id: number) => {
-    setNotes((prev) => prev.filter((note) => note.id !== id));
+  const deleteNote = async (id: string) => {
+    try {
+      const response = await fetch(
+        "http://localhost:8000/api/v1/annotation/delete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id: id }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to delete annotation");
+      }
+      setNotes((prev) => prev.filter((note) => note.id !== id));
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      setMessage("Failed to delete note");
+    }
   };
 
   // Toggle function for left sidebar visibility
@@ -279,34 +319,39 @@ function App() {
         };
 
         // Make API request to create concept
-        const response = await fetch('http://localhost:8000/api/v1/concept/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(newConcept),
-        });
+        const response = await fetch(
+          "http://localhost:8000/api/v1/concept/create",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(newConcept),
+          }
+        );
 
         if (!response.ok) {
-          throw new Error('Failed to create concept');
+          throw new Error("Failed to create concept");
         }
 
         const createdConcept = await response.json();
-        
+
         // Update local state
-        setConcepts(prev => [...prev, createdConcept]);
+        setConcepts((prev) => [...prev, createdConcept]);
         setNewConceptTitle("");
-        
+
         // Optionally, refresh document metadata to get the latest state
         if (documentMetadata?.id) {
-          const metadataResponse = await fetch(`http://localhost:8000/api/v1/document/${documentMetadata.id}/metadata`);
+          const metadataResponse = await fetch(
+            `http://localhost:8000/api/v1/document/${documentMetadata.id}/metadata`
+          );
           if (metadataResponse.ok) {
             const metadata = await metadataResponse.json();
             setConcepts(metadata.concepts);
           }
         }
       } catch (error) {
-        console.error('Error creating concept:', error);
+        console.error("Error creating concept:", error);
         // You might want to show an error message to the user here
       }
     }
@@ -348,9 +393,7 @@ function App() {
 
   // Helper: update the concept in the state list and activeConcept if necessary
   const updateConcept = (updated: Concept) => {
-    setConcepts((prev) =>
-      prev.map((c) => (c.id === updated.id ? updated : c))
-    );
+    setConcepts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     setActiveConcept(updated);
   };
 
@@ -361,58 +404,69 @@ function App() {
     const term = annotationSearchTerm.toLowerCase();
     return (
       n.quote.toLowerCase().includes(term) ||
-      n.content.toLowerCase().includes(term)
+      n.comment.toLowerCase().includes(term)
     );
   });
 
   const filteredConcepts = concepts.filter((c) => {
     // Exclude the active concept and already linked ones
-    if (activeConcept && (c.id === activeConcept.id || activeConcept.linkedConcepts.includes(c.id))) return false;
+    if (
+      activeConcept &&
+      (c.id === activeConcept.id || activeConcept.linkedConcepts.includes(c.id))
+    )
+      return false;
     const term = conceptSearchTerm.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(term)
-    );
+    return c.name.toLowerCase().includes(term);
   });
 
   // Add this state near other state declarations
   const [isUploading, setIsUploading] = useState(false);
 
   // Update the handleFileUpload function to use fetchDocument instead of fetchPDF
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/document/upload', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-        },
-        body: formData,
-      });
+      const response = await fetch(
+        "http://localhost:8000/api/v1/document/upload",
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Upload failed');
+        throw new Error(errorData.detail || "Upload failed");
       }
 
       const data = await response.json();
-      console.log('Upload successful:', data);
-      
+      console.log("Upload successful:", data);
+
       // After successful upload, fetch and display the new PDF
       if (data.id) {
         await fetchDocument(data.id);
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
-      alert(error instanceof Error ? error.message : 'Failed to upload PDF. Please try again.');
+      console.error("Error uploading file:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload PDF. Please try again."
+      );
     } finally {
       setIsUploading(false);
-      event.target.value = '';
+      event.target.value = "";
     }
   };
 
@@ -423,42 +477,45 @@ function App() {
 
   // Add these states near other state declarations
   const [annotations, setAnnotations] = useState<AnnotationBase[]>([]);
-  const [documentMetadata, setDocumentMetadata] = useState<DocumentBase | null>(null);
+  const [documentMetadata, setDocumentMetadata] = useState<DocumentBase | null>(
+    null
+  );
 
   // Update the fetchDocument function to properly handle the PDF data
   const fetchDocument = async (documentId: string) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Fetch PDF content and metadata in parallel
       const [pdfResponse, metadataResponse] = await Promise.all([
         fetch(`http://localhost:8000/api/v1/document/${documentId}`),
-        fetch(`http://localhost:8000/api/v1/document/${documentId}/metadata`)
+        fetch(`http://localhost:8000/api/v1/document/${documentId}/metadata`),
       ]);
-      
+
       if (!pdfResponse.ok) {
         throw new Error(`HTTP error! status: ${pdfResponse.status}`);
       }
       if (!metadataResponse.ok) {
         throw new Error(`HTTP error! status: ${metadataResponse.status}`);
       }
-      
+
       // Handle PDF content - create a blob URL instead of base64
       const blob = await pdfResponse.blob();
       const pdfUrl = URL.createObjectURL(blob);
       setPdfData(pdfUrl);
-      
+
       // Handle metadata
       const metadata = await metadataResponse.json();
       console.log(metadata);
       setDocumentMetadata(metadata.document);
       setAnnotations(metadata.annotations);
+      setNotes(metadata.annotations);
       setConcepts(metadata.concepts);
-      
+
       setIsLoading(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load document');
+      setError(err instanceof Error ? err.message : "Failed to load document");
       setIsLoading(false);
     }
   };
@@ -481,8 +538,15 @@ function App() {
 
   return (
     <div style={{ height: "100vh", width: "100vw", overflow: "hidden" }}>
-      <Worker workerUrl={new URL("pdfjs-dist/build/pdf.worker.js", import.meta.url).toString()}>
-        <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Worker
+        workerUrl={new URL(
+          "pdfjs-dist/build/pdf.worker.js",
+          import.meta.url
+        ).toString()}
+      >
+        <div
+          style={{ height: "100%", display: "flex", flexDirection: "column" }}
+        >
           {/* Top Toolbar (with left sidebar toggle and PDF viewer toolbar) */}
           <div
             style={{
@@ -519,10 +583,18 @@ function App() {
                       width: "100%",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <div style={{ position: 'relative' }}>
-                        <Button 
-                          onClick={() => document.getElementById('pdf-upload')?.click()}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <div style={{ position: "relative" }}>
+                        <Button
+                          onClick={() =>
+                            document.getElementById("pdf-upload")?.click()
+                          }
                         >
                           {isUploading ? (
                             <span>Uploading...</span>
@@ -535,8 +607,8 @@ function App() {
                           id="pdf-upload"
                           accept=".pdf"
                           onChange={handleFileUpload}
-                          style={{ 
-                            display: 'none'
+                          style={{
+                            display: "none",
                           }}
                         />
                       </div>
@@ -554,7 +626,13 @@ function App() {
                       }}
                     >
                       <GoToPreviousPage />
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
                         <CurrentPageInput style={{ width: "3rem" }} />
                         / <NumberOfPages />
                       </div>
@@ -585,7 +663,8 @@ function App() {
                     onClick={() => setActiveTab("notes")}
                     style={{
                       flex: 1,
-                      background: activeTab === "notes" ? "#ddd" : "transparent",
+                      background:
+                        activeTab === "notes" ? "#ddd" : "transparent",
                     }}
                   >
                     Notes
@@ -594,7 +673,8 @@ function App() {
                     onClick={() => setActiveTab("thumbnails")}
                     style={{
                       flex: 1,
-                      background: activeTab === "thumbnails" ? "#ddd" : "transparent",
+                      background:
+                        activeTab === "thumbnails" ? "#ddd" : "transparent",
                     }}
                   >
                     Thumbnails
@@ -603,7 +683,8 @@ function App() {
                     onClick={() => setActiveTab("bookmarks")}
                     style={{
                       flex: 1,
-                      background: activeTab === "bookmarks" ? "#ddd" : "transparent",
+                      background:
+                        activeTab === "bookmarks" ? "#ddd" : "transparent",
                     }}
                   >
                     Bookmarks
@@ -629,7 +710,9 @@ function App() {
                         <div
                           onClick={() => {
                             if (note.highlightAreas.length > 0) {
-                              highlightPluginInstance.jumpToHighlightArea(note.highlightAreas[0]);
+                              highlightPluginInstance.jumpToHighlightArea(
+                                note.highlightAreas[0]
+                              );
                             }
                           }}
                           style={{ cursor: "pointer" }}
@@ -646,15 +729,8 @@ function App() {
                           >
                             {note.quote}
                           </blockquote>
-                          <div>{note.content}</div>
+                          <div>{note.comment}</div>
                         </div>
-                        {note.image && (
-                          <img
-                            src={note.image}
-                            alt="Annotation snapshot"
-                            style={{ width: "100%", marginTop: "8px" }}
-                          />
-                        )}
                         <div
                           style={{
                             marginTop: "8px",
@@ -662,7 +738,9 @@ function App() {
                             gap: "8px",
                           }}
                         >
-                          <Button onClick={() => deleteNote(note.id)}>Delete</Button>
+                          <Button onClick={() => deleteNote(note.id)}>
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -682,16 +760,31 @@ function App() {
             {/* PDF Viewer */}
             <div style={{ flex: 1, height: "100%", overflow: "auto" }}>
               {isLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
+                >
                   Loading PDF...
                 </div>
               ) : error ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'red' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    height: "100%",
+                    color: "red",
+                  }}
+                >
                   Error: {error}
                 </div>
               ) : (
                 <Viewer
-                  fileUrl={pdfData || ''}
+                  fileUrl={pdfData || ""}
                   plugins={[
                     highlightPluginInstance,
                     searchPluginInstance,
@@ -714,7 +807,13 @@ function App() {
             >
               <h3>Concepts</h3>
               {/* New Concept Creation Form */}
-              <div style={{ marginBottom: "16px", borderBottom: "1px solid #ccc", paddingBottom: "8px" }}>
+              <div
+                style={{
+                  marginBottom: "16px",
+                  borderBottom: "1px solid #ccc",
+                  paddingBottom: "8px",
+                }}
+              >
                 <input
                   type="text"
                   placeholder="Title"
@@ -723,7 +822,10 @@ function App() {
                   className="custom-input"
                   style={{ width: "100%", marginBottom: "4px" }}
                 />
-                <PrimaryButton onClick={handleAddConcept} style={{ width: "100%" }}>
+                <PrimaryButton
+                  onClick={handleAddConcept}
+                  style={{ width: "100%" }}
+                >
                   Add Concept
                 </PrimaryButton>
               </div>
@@ -742,7 +844,10 @@ function App() {
                         padding: "8px",
                         marginBottom: "8px",
                         cursor: "pointer",
-                        background: activeConcept?.id === concept.id ? "#eef" : "transparent",
+                        background:
+                          activeConcept?.id === concept.id
+                            ? "#eef"
+                            : "transparent",
                       }}
                     >
                       <strong>{concept.name}</strong>
@@ -754,7 +859,6 @@ function App() {
               {/* Active Concept Details */}
               {activeConcept && (
                 <div style={{ borderTop: "1px solid #ccc", paddingTop: "8px" }}>
-
                   {/* Annotation References Section */}
                   <div style={{ marginBottom: "16px" }}>
                     <strong>Annotation References:</strong>
@@ -776,20 +880,12 @@ function App() {
                             }}
                           >
                             <div>
-                              <strong>Quote:</strong>{" "}
-                              {truncate(note.quote, 50)}
+                              <strong>Quote:</strong> {truncate(note.quote, 50)}
                             </div>
                             <div>
-                              <strong>Content:</strong>{" "}
-                              {truncate(note.content, 100)}
+                              <strong>Comment:</strong>{" "}
+                              {truncate(note.comment, 100)}
                             </div>
-                            {note.image && (
-                              <img
-                                src={note.image}
-                                alt="Annotation snapshot"
-                                style={{ width: "100%", marginTop: "8px" }}
-                              />
-                            )}
                             {note.comment && note.comment.length > 0 && (
                               <div style={{ marginTop: "4px" }}>
                                 <strong>Comment:</strong>
@@ -809,9 +905,18 @@ function App() {
                       style={{ width: "100%", marginBottom: "4px" }}
                     />
                     {annotationSearchTerm && (
-                      <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #ccc", padding: "4px" }}>
+                      <div
+                        style={{
+                          maxHeight: "150px",
+                          overflowY: "auto",
+                          border: "1px solid #ccc",
+                          padding: "4px",
+                        }}
+                      >
                         {filteredNotes.length === 0 ? (
-                          <div style={{ fontSize: "0.8rem", color: "#888" }}>No matching notes</div>
+                          <div style={{ fontSize: "0.8rem", color: "#888" }}>
+                            No matching notes
+                          </div>
                         ) : (
                           filteredNotes.map((note) => (
                             <div
@@ -820,7 +925,11 @@ function App() {
                                 addAnnotationRef(note.id);
                                 setAnnotationSearchTerm("");
                               }}
-                              style={{ padding: "4px", cursor: "pointer", borderBottom: "1px solid #eee" }}
+                              style={{
+                                padding: "4px",
+                                cursor: "pointer",
+                                borderBottom: "1px solid #eee",
+                              }}
                             >
                               #{note.id}: {note.quote.slice(0, 30)}...
                             </div>
@@ -832,13 +941,20 @@ function App() {
 
                   {/* Comment Section */}
                   <div style={{ marginBottom: "16px" }}>
-                    <strong style={{ marginBottom: "4px" }}>Concept Comment:</strong>
+                    <strong style={{ marginBottom: "4px" }}>
+                      Concept Comment:
+                    </strong>
                     <textarea
                       rows={2}
                       placeholder="Add a comment"
                       className="custom-textarea"
                       value={activeConcept.comment}
-                      onChange={(e) => setActiveConcept({ ...activeConcept, comment: e.target.value })}
+                      onChange={(e) =>
+                        setActiveConcept({
+                          ...activeConcept,
+                          comment: e.target.value,
+                        })
+                      }
                       style={{ width: "100%", margin: "16px 0px" }}
                     />
                   </div>
@@ -851,10 +967,14 @@ function App() {
                     ) : (
                       <ul>
                         {activeConcept.linkedConcepts.map((linkId) => {
-                          const linkedConcept = concepts.find((c) => c.id === linkId);
+                          const linkedConcept = concepts.find(
+                            (c) => c.id === linkId
+                          );
                           return (
                             <li key={linkId}>
-                              {linkedConcept ? linkedConcept.name : `Concept #${linkId}`}
+                              {linkedConcept
+                                ? linkedConcept.name
+                                : `Concept #${linkId}`}
                             </li>
                           );
                         })}
@@ -869,9 +989,18 @@ function App() {
                       style={{ width: "100%", marginBottom: "4px" }}
                     />
                     {conceptSearchTerm && (
-                      <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #ccc", padding: "4px" }}>
+                      <div
+                        style={{
+                          maxHeight: "150px",
+                          overflowY: "auto",
+                          border: "1px solid #ccc",
+                          padding: "4px",
+                        }}
+                      >
                         {filteredConcepts.length === 0 ? (
-                          <div style={{ fontSize: "0.8rem", color: "#888" }}>No matching concepts</div>
+                          <div style={{ fontSize: "0.8rem", color: "#888" }}>
+                            No matching concepts
+                          </div>
                         ) : (
                           filteredConcepts.map((c) => (
                             <div
@@ -880,7 +1009,11 @@ function App() {
                                 addLinkedConcept(c.id);
                                 setConceptSearchTerm("");
                               }}
-                              style={{ padding: "4px", cursor: "pointer", borderBottom: "1px solid #eee" }}
+                              style={{
+                                padding: "4px",
+                                cursor: "pointer",
+                                borderBottom: "1px solid #eee",
+                              }}
                             >
                               {c.name.slice(0, 30)}...
                             </div>

@@ -46,17 +46,16 @@ async def upload_document(
             name=file.filename,
             content_type=file.content_type or "application/pdf",
             file=file,  # Pass the file object to crud_document
-            metadata={}
+            metadata={},
         )
-        
+
         document = await crud_document.create(engine, obj_in=document_in)
         return document
-        
+
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
         raise HTTPException(
-            status_code=400,
-            detail=f"Failed to upload document: {str(e)}"
+            status_code=400, detail=f"Failed to upload document: {str(e)}"
         )
     finally:
         await file.close()
@@ -174,30 +173,28 @@ async def get_document_file(
     document = await crud_document.get(engine, document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     try:
         file_path = settings.DOCUMENT_DIR_PATH / document.path
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="PDF file not found on server")
-            
+
         def iterfile():
             with open(file_path, "rb") as file:
                 yield from file
-                
+
         return StreamingResponse(
             iterfile(),
             media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'inline; filename="{document.name}"'
-            }
+            headers={"Content-Disposition": f'inline; filename="{document.name}"'},
         )
-        
+
     except Exception as e:
         logger.error(f"Error retrieving PDF: {str(e)}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Error retrieving PDF file: {str(e)}"
+            status_code=500, detail=f"Error retrieving PDF file: {str(e)}"
         )
+
 
 @router.get("/{document_id}/metadata")
 async def get_document_metadata(
@@ -205,12 +202,10 @@ async def get_document_metadata(
     engine: AIOEngine = Depends(deps.engine_generator),
 ) -> Any:
     """Get document metadata including annotations and concepts"""
-    document, annotations, concepts = await crud_document.get_with_related(engine, document_id)
+    document, annotations, concepts = await crud_document.get_with_related(
+        engine, document_id
+    )
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
-        
-    return {
-        "document": document,
-        "annotations": annotations,
-        "concepts": concepts
-    }
+
+    return {"document": document, "annotations": annotations, "concepts": concepts}

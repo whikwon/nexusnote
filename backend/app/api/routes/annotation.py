@@ -26,7 +26,7 @@ async def delete_annotation(
     engine: AIOEngine = Depends(deps.engine_generator),
     id: str = Body(..., embed=True),
 ) -> Any:
-    await crud_annotation.delete(engine, id)
+    await crud_annotation.delete(engine, id=id)
     return {"msg": "Annotation deleted successfully."}
 
 
