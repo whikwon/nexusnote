@@ -1,0 +1,22 @@
+/* App.css */
+.custom-input,
+.custom-textarea {
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 1rem;
+  padding: 6px 0px;
+  padding-left: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: #333;
+  background-color: #fff;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.custom-input:focus,
+.custom-textarea:focus {
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 1px #007bff;
+}

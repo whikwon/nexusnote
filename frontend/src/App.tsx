@@ -1,188 +1,704 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState, useRef } from "react";
+import React from "react";
+import {
+    Viewer,
+    Worker,
+    Button,
+    Position,
+    PrimaryButton,
+    Tooltip,
+} from "@react-pdf-viewer/core";
+import "@react-pdf-viewer/core/lib/styles/index.css";
+import {
+    highlightPlugin,
+    HighlightArea,
+    MessageIcon,
+    RenderHighlightContentProps,
+    RenderHighlightsProps,
+    RenderHighlightTargetProps,
+} from "@react-pdf-viewer/highlight";
+import "@react-pdf-viewer/highlight/lib/styles/index.css";
+
+import { searchPlugin } from "@react-pdf-viewer/search";
 
 import UpdateElectron from "@/components/update";
-import logoVite from "./assets/logo-vite.svg";
-import logoElectron from "./assets/logo-electron.svg";
 import "./App.css";
-import { Button } from "./components/ui/button";
-import "react-pdf-highlighter/dist/style.css";
-import type { IHighlight, NewHighlight } from "react-pdf-highlighter";
-import { AreaHighlight, Highlight, PdfHighlighter, PdfLoader, Popup, Tip } from "react-pdf-highlighter";
-import HighlightPopup from "./components/PDFViewer/HighLightPopup";
-import LeftSidebar from "./components/PDFViewer/LeftSidebar";
-import RightSidebar from "./components/PDFViewer/RightSidebar";
 
-import { GlobalWorkerOptions } from "pdfjs-dist";
+import { thumbnailPlugin } from "@react-pdf-viewer/thumbnail";
+import { toolbarPlugin, ToolbarSlot } from "@react-pdf-viewer/toolbar";
+import "@react-pdf-viewer/thumbnail/lib/styles/index.css";
+import "@react-pdf-viewer/toolbar/lib/styles/index.css";
 
-GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.js", import.meta.url).toString();
+// Dummy icon for the sidebar toggle. You can replace it with any icon component.
+const MenuIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 20 20">
+        <rect x="2" y="4" width="16" height="2" fill="currentColor" />
+        <rect x="2" y="9" width="16" height="2" fill="currentColor" />
+        <rect x="2" y="14" width="16" height="2" fill="currentColor" />
+    </svg>
+);
 
 function App() {
-  const [highlights, setHighlights] = useState<IHighlight[]>([]);
-  const [selectedContent, setSelectedContent] = useState("");
-  const [selectedComment, setSelectedComment] = useState<{ text: string; emoji: string } | null>(null);
-  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
-  const [highlightSelected, setHighlightSelected] = useState(false);
-  const scrollViewerTo = useRef((highlight: IHighlight) => {});
+  // ===== Note related interfaces and state =====
+  interface Note {
+    id: number;
+    content: string;
+    highlightAreas: HighlightArea[];
+    quote: string;
+    image?: string;
+    comments?: string[];
+  }
 
-  // URL 해시 관련 함수들
-  const parseIdFromHash = () => document.location.hash.slice("#highlight-".length);
-  const resetHash = () => {
-    document.location.hash = "";
+  const [message, setMessage] = useState("");
+  const [notes, setNotes] = useState<Note[]>([]);
+  const noteEles = useRef(new Map<number, HTMLElement>());
+  const noteIdRef = useRef(0);
+
+  // ===== Left sidebar state (Notes/Thumbnails) =====
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [activeTab, setActiveTab] = useState<"notes" | "thumbnails">("notes");
+
+  // ===== Concept (Zettelkasten permanent note) related interfaces and state =====
+  interface Comment {
+    id: number;
+    content: string;
+  }
+
+  interface Concept {
+    id: number;
+    title: string;
+    content: string;
+    // annotationRefs are note ids from the notes state
+    annotationRefs: number[];
+    comment: string;
+    linkedConcepts: number[]; // references to other concept ids
+  }
+
+  const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [activeConcept, setActiveConcept] = useState<Concept | null>(null);
+  const conceptIdRef = useRef(0);
+  const commentIdRef = useRef(0);
+
+  // Local state for concept creation and inputs
+  const [newConceptTitle, setNewConceptTitle] = useState("");
+  const [newConceptContent, setNewConceptContent] = useState("");
+
+  // For searching available notes and concepts when linking
+  const [annotationSearchTerm, setAnnotationSearchTerm] = useState("");
+  const [conceptSearchTerm, setConceptSearchTerm] = useState("");
+
+  // ===== Helper function to truncate text =====
+  const truncate = (text: string, max: number) => {
+    return text.length > max ? text.substring(0, max) + "..." : text;
   };
 
-  // 하이라이트로 스크롤
-  const scrollToHighlightFromHash = useCallback(() => {
-    const highlightId = parseIdFromHash();
-    const highlight = highlights.find((h) => h.id === highlightId);
-    if (highlight) {
-      scrollViewerTo.current(highlight);
+  // ===== Highlight plugin functions =====
+  const renderHighlightTarget = (props: RenderHighlightTargetProps) => (
+    <div
+      style={{
+        background: "#eee",
+        display: "flex",
+        position: "absolute",
+        left: `${props.selectionRegion.left}%`,
+        top: `${props.selectionRegion.top + props.selectionRegion.height}%`,
+        transform: "translate(0, 8px)",
+        zIndex: 1,
+      }}
+    >
+      <Tooltip
+        position={Position.TopCenter}
+        target={
+          <Button onClick={props.toggle}>
+            <MessageIcon />
+          </Button>
+        }
+        content={() => <div style={{ width: "100px" }}>Add a note</div>}
+        offset={{ left: 0, top: -8 }}
+      />
+    </div>
+  );
+
+  const renderHighlightContent = (props: RenderHighlightContentProps) => {
+    return (
+      <div
+        style={{
+          background: "#fff",
+          border: "1px solid rgba(0, 0, 0, .3)",
+          borderRadius: "2px",
+          padding: "8px",
+          position: "absolute",
+          left: `${props.selectionRegion.left}%`,
+          top: `${props.selectionRegion.top + props.selectionRegion.height}%`,
+          zIndex: 1,
+        }}
+      >
+        <div>
+          <textarea
+            rows={3}
+            className="custom-textarea"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          ></textarea>
+        </div>
+        <div style={{ display: "flex", fontSize: "1.0rem" }}>
+          <div style={{ marginRight: "8px" }}>
+            <PrimaryButton
+              onClick={() => {
+                if (message !== "") {
+                  const newId = noteIdRef.current + 1;
+                  noteIdRef.current = newId;
+                  const note: Note = {
+                    id: newId,
+                    content: message,
+                    highlightAreas: props.highlightAreas,
+                    quote: props.selectedText,
+                  };
+                  setNotes((prevNote) => [...prevNote, note]);
+                  setMessage("");
+                  props.cancel();
+                }
+              }}
+            >
+              Add
+            </PrimaryButton>
+          </div>
+          <Button
+            onClick={() => {
+              setMessage("");
+              props.cancel();
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const jumpToNote = (note: Note) => {
+    const noteElement = noteEles.current.get(note.id);
+    if (noteElement) {
+      noteElement.scrollIntoView();
     }
-  }, [highlights]);
-
-  // 해시 변경 이벤트 리스너
-  useEffect(() => {
-    window.addEventListener("hashchange", scrollToHighlightFromHash, false);
-    return () => {
-      window.removeEventListener("hashchange", scrollToHighlightFromHash, false);
-    };
-  }, [scrollToHighlightFromHash]);
-
-  // 하이라이트 추가
-  const addHighlight = async (highlight: NewHighlight) => {
-    const newHighlight = { ...highlight, id: String(Math.random()).slice(2) };
-
-    try {
-      const response = await fetch("http://localhost:5173/api/addAnnotation", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: Math.floor(Math.random() * 1000000),
-          fileName: "sample.pdf",
-          pageNumber: highlight.position.pageNumber,
-          contents: highlight.content.text || "",
-          comment: highlight.comment?.text,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to add annotation");
-      }
-
-      // 저장된 어노테이션 데이터 확인
-      const savedAnnotation = await response.json();
-      console.log("저장된 어노테이션:", savedAnnotation);
-
-      // 전체 어노테이션 목록 확인
-      const allAnnotationsResponse = await fetch("http://localhost:5173/api/getAnnotations");
-      const allAnnotations = await allAnnotationsResponse.json();
-      console.log("저장된 전체 어노테이션 목록:", allAnnotations);
-
-      setHighlights((prev) => [newHighlight, ...prev]);
-    } catch (error) {
-      console.error("어노테이션 추가 중 에러 발생:", error);
-      // 에러가 발생해도 UI에는 추가 (나중에 동기화 로직 추가 필요)
-      setHighlights((prev) => [newHighlight, ...prev]);
-    }
   };
 
-  const handleHighlightClick = (highlight: IHighlight) => {
-    setSelectedContent(highlight.content.text || "");
-    setSelectedComment(highlight.comment);
-    scrollViewerTo.current(highlight);
-  };
-
-  const handleDeleteHighlight = (id: string) => {
-    setHighlights((prev) => prev.filter((h) => h.id !== id));
-    // 삭제된 하이라이트가 현재 선택된 것이라면 선택 상태도 초기화
-    if (highlights.find((h) => h.id === id)?.content.text === selectedContent) {
-      setSelectedContent("");
-      setSelectedComment(null);
-      setHighlightSelected(false);
-    }
-  };
-  return (
+  const renderHighlights = (props: RenderHighlightsProps) => (
     <div>
-      <div className="flex w-screen h-screen overflow-hidden">
-        <LeftSidebar
-          isOpen={isLeftSidebarOpen}
-          onToggle={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-          highlights={highlights}
-          onHighlightClick={handleHighlightClick}
-          onDeleteHighlight={handleDeleteHighlight}
-          setHighlightSelected={setHighlightSelected}
-        />
-        <div className="relative flex-1 overflow-hidden">
-          <div className="absolute inset-0 overflow-auto bg-gray-50">
-            <PdfLoader url="/pdf/sample.pdf" beforeLoad={<div>Loading...</div>}>
-              {(pdfDocument) => (
-                <PdfHighlighter
-                  pdfDocument={pdfDocument}
-                  key={pdfDocument.numPages}
-                  enableAreaSelection={(event) => event.altKey}
-                  onScrollChange={resetHash}
-                  scrollRef={(scrollTo) => {
-                    scrollViewerTo.current = scrollTo;
-                    scrollToHighlightFromHash();
-                  }}
-                  onSelectionFinished={(position, content, hideTipAndSelection, transformSelection) => {
-                    setSelectedContent(content.text || "");
-                    return (
-                      <Tip
-                        onOpen={transformSelection}
-                        onConfirm={(comment) => {
-                          addHighlight({ content, position, comment });
-                          hideTipAndSelection();
-                        }}
-                      />
-                    );
-                  }}
-                  highlightTransform={(highlight, _, setTip, hideTip, __, ___, isScrolledTo) => {
-                    const isTextHighlight = !!(highlight.content && highlight.content.image);
+      {notes.map((note) => (
+        <React.Fragment key={note.id}>
+          {note.highlightAreas
+            .filter((area) => area.pageIndex === props.pageIndex)
+            .map((area, idx) => (
+              <div
+                key={idx}
+                style={Object.assign(
+                  {},
+                  { background: "yellow", opacity: 0.4 },
+                  props.getCssProperties(area, props.rotation)
+                )}
+                onClick={() => jumpToNote(note)}
+                ref={(ref): void => {
+                  if (ref) noteEles.current.set(note.id, ref);
+                }}
+              />
+            ))}
+        </React.Fragment>
+      ))}
+    </div>
+  );
 
-                    const component = isTextHighlight ? (
-                      <Highlight
-                        isScrolledTo={isScrolledTo}
-                        position={highlight.position}
-                        comment={highlight.comment}
-                        onClick={() => {
-                          setSelectedContent(highlight.content.text || "");
-                          setSelectedComment(highlight.comment);
-                        }}
-                      />
-                    ) : (
-                      <AreaHighlight isScrolledTo={isScrolledTo} highlight={highlight} onChange={() => {}} />
-                    );
+  const highlightPluginInstance = highlightPlugin({
+    renderHighlightTarget,
+    renderHighlightContent,
+    renderHighlights,
+  });
 
-                    return (
-                      <Popup
-                        popupContent={
-                          <HighlightPopup
-                            comment={highlight.comment}
-                            onDelete={() => handleDeleteHighlight(highlight.id)}
-                            onConfirm={() => {}}
-                          />
-                        }
-                        onMouseOver={(popupContent) => setTip(highlight, () => popupContent)}
-                        onMouseOut={hideTip}
+  const searchPluginInstance = searchPlugin();
+  const thumbnailPluginInstance = thumbnailPlugin();
+  const toolbarPluginInstance = toolbarPlugin();
+  const { Toolbar } = toolbarPluginInstance;
+
+  const deleteNote = (id: number) => {
+    setNotes((prev) => prev.filter((note) => note.id !== id));
+  };
+
+  // Toggle function for left sidebar visibility
+  const toggleSidebar = () => {
+    setSidebarVisible((prev) => !prev);
+  };
+
+  // ===== Concept-related handlers =====
+
+  // Create a new concept
+  const handleAddConcept = () => {
+    if (newConceptTitle.trim() && newConceptContent.trim()) {
+      const newId = conceptIdRef.current + 1;
+      conceptIdRef.current = newId;
+      const newConcept: Concept = {
+        id: newId,
+        title: newConceptTitle,
+        content: newConceptContent,
+        annotationRefs: [],
+        comment: "",
+        linkedConcepts: [],
+      };
+      setConcepts((prev) => [...prev, newConcept]);
+      setNewConceptTitle("");
+      setNewConceptContent("");
+    }
+  };
+
+  // Set the active concept for viewing/editing
+  const handleSelectConcept = (concept: Concept) => {
+    setActiveConcept(concept);
+    // Reset search terms when switching concepts
+    setAnnotationSearchTerm("");
+    setConceptSearchTerm("");
+  };
+
+  // Add a note annotation reference (by note id) to the active concept
+  const addAnnotationRef = (noteId: number) => {
+    if (activeConcept && !activeConcept.annotationRefs.includes(noteId)) {
+      const updatedConcept = {
+        ...activeConcept,
+        annotationRefs: [...activeConcept.annotationRefs, noteId],
+      };
+      updateConcept(updatedConcept);
+    }
+  };
+
+  // Link another concept to the active concept by id
+  const addLinkedConcept = (otherConceptId: number) => {
+    if (
+      activeConcept &&
+      otherConceptId !== activeConcept.id &&
+      !activeConcept.linkedConcepts.includes(otherConceptId)
+    ) {
+      const updatedConcept = {
+        ...activeConcept,
+        linkedConcepts: [...activeConcept.linkedConcepts, otherConceptId],
+      };
+      updateConcept(updatedConcept);
+    }
+  };
+
+  // Helper: update the concept in the state list and activeConcept if necessary
+  const updateConcept = (updated: Concept) => {
+    setConcepts((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c))
+    );
+    setActiveConcept(updated);
+  };
+
+  // ===== Filtering functions for search-based linking =====
+  const filteredNotes = notes.filter((n) => {
+    // Exclude notes already referenced
+    if (activeConcept?.annotationRefs.includes(n.id)) return false;
+    const term = annotationSearchTerm.toLowerCase();
+    return (
+      n.quote.toLowerCase().includes(term) ||
+      n.content.toLowerCase().includes(term)
+    );
+  });
+
+  const filteredConcepts = concepts.filter((c) => {
+    // Exclude the active concept and already linked ones
+    if (activeConcept && (c.id === activeConcept.id || activeConcept.linkedConcepts.includes(c.id))) return false;
+    const term = conceptSearchTerm.toLowerCase();
+    return (
+      c.title.toLowerCase().includes(term) ||
+      c.content.toLowerCase().includes(term)
+    );
+  });
+
+  return (
+    <div style={{ height: "100vh", width: "100vw", overflow: "hidden" }}>
+      <Worker workerUrl={new URL("pdfjs-dist/build/pdf.worker.js", import.meta.url).toString()}>
+        <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+          {/* Top Toolbar (with left sidebar toggle and PDF viewer toolbar) */}
+          <div
+            style={{
+              padding: "8px",
+              background: "#f1f1f1",
+              borderBottom: "1px solid #ccc",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Button onClick={toggleSidebar} style={{ marginRight: "8px" }}>
+              <MenuIcon />
+            </Button>
+            <Toolbar>
+              {(props: ToolbarSlot) => {
+                const {
+                  CurrentPageInput,
+                  Download,
+                  EnterFullScreen,
+                  GoToNextPage,
+                  GoToPreviousPage,
+                  NumberOfPages,
+                  Print,
+                  ShowSearchPopover,
+                  Zoom,
+                  ZoomIn,
+                  ZoomOut,
+                } = props;
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <ShowSearchPopover />
+                      <ZoomOut />
+                      <Zoom />
+                      <ZoomIn />
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginLeft: "auto",
+                        gap: "8px",
+                      }}
+                    >
+                      <GoToPreviousPage />
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <CurrentPageInput style={{ width: "3rem" }} />
+                        / <NumberOfPages />
+                      </div>
+                      <GoToNextPage />
+                      <EnterFullScreen />
+                      <Download />
+                      <Print />
+                    </div>
+                  </div>
+                );
+              }}
+            </Toolbar>
+          </div>
+          {/* Main content area with left sidebar, PDF viewer, and right sidebar */}
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            {/* Left Sidebar: Notes/Thumbnails */}
+            {sidebarVisible && (
+              <div
+                style={{
+                  width: "300px",
+                  borderRight: "1px solid rgba(0,0,0,0.3)",
+                  overflowY: "auto",
+                  padding: "10px",
+                }}
+              >
+                <div style={{ display: "flex", marginBottom: "10px" }}>
+                  <Button
+                    onClick={() => setActiveTab("notes")}
+                    style={{
+                      flex: 1,
+                      background: activeTab === "notes" ? "#ddd" : "transparent",
+                    }}
+                  >
+                    Notes
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab("thumbnails")}
+                    style={{
+                      flex: 1,
+                      background: activeTab === "thumbnails" ? "#ddd" : "transparent",
+                    }}
+                  >
+                    Thumbnails
+                  </Button>
+                </div>
+                {activeTab === "notes" && (
+                  <>
+                    {notes.length === 0 && (
+                      <div style={{ textAlign: "center", padding: "8px" }}>
+                        There is no note
+                      </div>
+                    )}
+                    {notes.map((note) => (
+                      <div
+                        key={note.id}
+                        style={{
+                          borderBottom: "1px solid rgba(0,0,0,0.3)",
+                          cursor: "pointer",
+                          padding: "8px",
+                          marginBottom: "8px",
+                        }}
                       >
-                        {component}
-                      </Popup>
-                    );
-                  }}
-                  highlights={highlights}
+                        <div
+                          onClick={() => {
+                            if (note.highlightAreas.length > 0) {
+                              highlightPluginInstance.jumpToHighlightArea(note.highlightAreas[0]);
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <blockquote
+                            style={{
+                              borderLeft: "2px solid rgba(0,0,0,0.2)",
+                              fontSize: ".75rem",
+                              lineHeight: 1.5,
+                              margin: "0 0 8px 0",
+                              paddingLeft: "8px",
+                              textAlign: "justify",
+                            }}
+                          >
+                            {note.quote}
+                          </blockquote>
+                          <div>{note.content}</div>
+                        </div>
+                        {note.image && (
+                          <img
+                            src={note.image}
+                            alt="Annotation snapshot"
+                            style={{ width: "100%", marginTop: "8px" }}
+                          />
+                        )}
+                        <div
+                          style={{
+                            marginTop: "8px",
+                            display: "flex",
+                            gap: "8px",
+                          }}
+                        >
+                          <Button onClick={() => deleteNote(note.id)}>Delete</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {activeTab === "thumbnails" &&
+                  (() => {
+                    const { Thumbnails } = thumbnailPluginInstance;
+                    return <Thumbnails />;
+                  })()}
+              </div>
+            )}
+
+            {/* PDF Viewer */}
+            <div style={{ flex: 1, height: "100%", overflow: "auto" }}>
+              <Viewer
+                fileUrl="/pdf/sample.pdf"
+                plugins={[
+                  highlightPluginInstance,
+                  searchPluginInstance,
+                  thumbnailPluginInstance,
+                  toolbarPluginInstance,
+                ]}
+              />
+            </div>
+
+            {/* Right Sidebar: Concepts (Permanent Notes) */}
+            <div
+              style={{
+                width: "300px",
+                borderLeft: "1px solid rgba(0,0,0,0.3)",
+                overflowY: "auto",
+                padding: "10px",
+              }}
+            >
+              <h3>Concepts</h3>
+              {/* New Concept Creation Form */}
+              <div style={{ marginBottom: "16px", borderBottom: "1px solid #ccc", paddingBottom: "8px" }}>
+                <input
+                  type="text"
+                  placeholder="Title"
+                  value={newConceptTitle}
+                  onChange={(e) => setNewConceptTitle(e.target.value)}
+                  className="custom-input"
+                  style={{ width: "100%", marginBottom: "4px" }}
                 />
+                <textarea
+                  rows={2}
+                  placeholder="Content"
+                  value={newConceptContent}
+                  onChange={(e) => setNewConceptContent(e.target.value)}
+                  className="custom-textarea"
+                  style={{ width: "100%", marginBottom: "4px" }}
+                />
+                <PrimaryButton onClick={handleAddConcept} style={{ width: "100%" }}>
+                  Add Concept
+                </PrimaryButton>
+              </div>
+
+              {/* List of Concepts */}
+              <div style={{ marginBottom: "16px" }}>
+                {concepts.length === 0 ? (
+                  <div style={{ textAlign: "center" }}>No concepts yet</div>
+                ) : (
+                  concepts.map((concept) => (
+                    <div
+                      key={concept.id}
+                      onClick={() => handleSelectConcept(concept)}
+                      style={{
+                        border: "1px solid #ccc",
+                        padding: "8px",
+                        marginBottom: "8px",
+                        cursor: "pointer",
+                        background: activeConcept?.id === concept.id ? "#eef" : "transparent",
+                      }}
+                    >
+                      <strong>{concept.title}</strong>
+                      <div style={{ fontSize: "0.8rem", color: "#555" }}>
+                        {concept.content.slice(0, 50)}...
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Active Concept Details */}
+              {activeConcept && (
+                <div style={{ borderTop: "1px solid #ccc", paddingTop: "8px" }}>
+
+                  {/* Annotation References Section */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <strong>Annotation References:</strong>
+                    {activeConcept.annotationRefs.length === 0 ? (
+                      <p>No annotations referenced.</p>
+                    ) : (
+                      activeConcept.annotationRefs.map((refId) => {
+                        const note = notes.find((n) => n.id === refId);
+                        if (!note) return null;
+                        return (
+                          <div
+                            key={refId}
+                            style={{
+                              border: "1px solid #ccc",
+                              padding: "8px",
+                              marginBottom: "8px",
+                              borderRadius: "4px",
+                              background: "#f9f9f9",
+                            }}
+                          >
+                            <div>
+                              <strong>Quote:</strong>{" "}
+                              {truncate(note.quote, 50)}
+                            </div>
+                            <div>
+                              <strong>Content:</strong>{" "}
+                              {truncate(note.content, 100)}
+                            </div>
+                            {note.image && (
+                              <img
+                                src={note.image}
+                                alt="Annotation snapshot"
+                                style={{ width: "100%", marginTop: "8px" }}
+                              />
+                            )}
+                            {note.comments && note.comments.length > 0 && (
+                              <div style={{ marginTop: "4px" }}>
+                                <strong>Comments:</strong>
+                                {note.comments.map((c, i) => (
+                                  <div key={i} style={{ fontSize: "0.85rem" }}>
+                                    {truncate(c, 50)}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                    <input
+                      type="text"
+                      placeholder="Search notes..."
+                      value={annotationSearchTerm}
+                      onChange={(e) => setAnnotationSearchTerm(e.target.value)}
+                      className="custom-input"
+                      style={{ width: "100%", marginBottom: "4px" }}
+                    />
+                    {annotationSearchTerm && (
+                      <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #ccc", padding: "4px" }}>
+                        {filteredNotes.length === 0 ? (
+                          <div style={{ fontSize: "0.8rem", color: "#888" }}>No matching notes</div>
+                        ) : (
+                          filteredNotes.map((note) => (
+                            <div
+                              key={note.id}
+                              onClick={() => {
+                                addAnnotationRef(note.id);
+                                setAnnotationSearchTerm("");
+                              }}
+                              style={{ padding: "4px", cursor: "pointer", borderBottom: "1px solid #eee" }}
+                            >
+                              #{note.id}: {note.quote.slice(0, 30)}...
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Comments Section */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <strong style={{ marginBottom: "4px" }}>Concept Comment:</strong>
+                    <textarea
+                      rows={2}
+                      placeholder="Add a comment"
+                      className="custom-textarea"
+                      value={activeConcept.comment}
+                      onChange={(e) => setActiveConcept({ ...activeConcept, comment: e.target.value })}
+                      style={{ width: "100%", margin: "16px 0px" }}
+                    />
+                  </div>
+
+                  {/* Linked Concepts Section */}
+                  <div>
+                    <strong>Linked Concepts:</strong>
+                    {activeConcept.linkedConcepts.length === 0 ? (
+                      <p>No linked concepts.</p>
+                    ) : (
+                      <ul>
+                        {activeConcept.linkedConcepts.map((linkId) => {
+                          const linkedConcept = concepts.find((c) => c.id === linkId);
+                          return (
+                            <li key={linkId}>
+                              {linkedConcept ? linkedConcept.title : `Concept #${linkId}`}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    <input
+                      type="text"
+                      placeholder="Search concepts..."
+                      value={conceptSearchTerm}
+                      className="custom-input"
+                      onChange={(e) => setConceptSearchTerm(e.target.value)}
+                      style={{ width: "100%", marginBottom: "4px" }}
+                    />
+                    {conceptSearchTerm && (
+                      <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #ccc", padding: "4px" }}>
+                        {filteredConcepts.length === 0 ? (
+                          <div style={{ fontSize: "0.8rem", color: "#888" }}>No matching concepts</div>
+                        ) : (
+                          filteredConcepts.map((c) => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                addLinkedConcept(c.id);
+                                setConceptSearchTerm("");
+                              }}
+                              style={{ padding: "4px", cursor: "pointer", borderBottom: "1px solid #eee" }}
+                            >
+                              {c.title.slice(0, 30)}...
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </PdfLoader>
+            </div>
           </div>
         </div>
-        <RightSidebar
-          selectedContent={selectedContent}
-          selectedComment={selectedComment}
-          onHighlightSelected={highlightSelected}
-        />
-      </div>
+      </Worker>
       <UpdateElectron />
     </div>
   );
