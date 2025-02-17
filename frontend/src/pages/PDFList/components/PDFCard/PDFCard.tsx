@@ -8,14 +8,38 @@ const cx = classNames.bind(styles);
 interface PDFCardProps {
   pdf: PDFItem;
   isSelected: boolean;
-  onClick: (id: number) => void;
+  onPreview: (id: number) => void;
+  onView: (id: number) => void;
   onDelete: (id: number) => void;
 }
 
-export default function PDFCard({ pdf, isSelected, onClick, onDelete }: PDFCardProps) {
+export const EmptyPDFCard = () => {
+  return (
+    <div className={cx('card', 'empty')}>
+      <div className={cx('emptyIcon')}>📄</div>
+      <div className={cx('emptyText')}>
+        PDF 파일을 여기에
+        <br />
+        드래그 앤 드롭하세요
+      </div>
+    </div>
+  );
+};
+
+export default function PDFCard({ pdf, isSelected, onPreview, onView, onDelete }: PDFCardProps) {
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete(pdf.id);
+  };
+
+  const handlePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onPreview(pdf.id);
+  };
+
+  const handleView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onView(pdf.id);
   };
 
   return (
@@ -24,7 +48,6 @@ export default function PDFCard({ pdf, isSelected, onClick, onDelete }: PDFCardP
         selected: isSelected,
         disabled: pdf.isDisabled,
       })}
-      onClick={() => onClick(pdf.id)}
     >
       <button className={cx('deleteButton')} onClick={handleDelete}>
         ×
@@ -37,6 +60,14 @@ export default function PDFCard({ pdf, isSelected, onClick, onDelete }: PDFCardP
         )}
       </div>
       <p className={cx('pdfTitle')}>{pdf.title}</p>
+      <div className={cx('actions')}>
+        <button className={cx('actionButton', 'preview')} onClick={handlePreview}>
+          미리보기
+        </button>
+        <button className={cx('actionButton', 'view')} onClick={handleView}>
+          열기
+        </button>
+      </div>
     </div>
   );
 }

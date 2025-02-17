@@ -1,20 +1,28 @@
 .card {
   border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  cursor: pointer;
+  border-radius: 1rem;
+  padding: 1.25rem;
   transition: all 0.2s ease-in-out;
   background: white;
   position: relative;
+  height: 100%;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.1),
-      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    border-color: #3b82f6;
 
     .deleteButton {
       opacity: 1;
+      transform: translateY(0);
+    }
+
+    .actions {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 
@@ -30,16 +38,46 @@
     &:hover {
       transform: none;
       box-shadow: none;
+      border-color: #e2e8f0;
+    }
+  }
+
+  &.empty {
+    border: 2px dashed #94a3b8;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #3b82f6;
+      background-color: #f0f7ff;
+      transform: translateY(-2px);
+    }
+
+    .emptyIcon {
+      font-size: 3rem;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+    }
+
+    .emptyText {
+      color: #64748b;
+      font-size: 0.95rem;
+      text-align: center;
+      font-weight: 500;
     }
   }
 }
 
 .deleteButton {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  width: 24px;
-  height: 24px;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background-color: #ef4444;
   color: white;
@@ -48,23 +86,28 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   line-height: 1;
   opacity: 0;
+  transform: translateY(-4px);
   transition: all 0.2s ease-in-out;
   z-index: 1;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 
   &:hover {
     background-color: #dc2626;
+    transform: translateY(0) scale(1.1);
   }
 }
 
 .thumbnailWrapper {
-  height: 150px;
+  height: 200px;
   overflow: hidden;
-  border-radius: 0.25rem;
-  margin-bottom: 0.5rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
   background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
 
   .rpv-core__viewer {
     width: 100%;
@@ -73,11 +116,77 @@
 }
 
 .pdfTitle {
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: #1f2937;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0 0.5rem;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.2s ease-in-out;
+  margin-top: auto;
+}
+
+.actionButton {
+  flex: 1;
+  padding: 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+
+  &.preview {
+    background-color: #f3f4f6;
+    color: #374151;
+
+    &:hover {
+      background-color: #e5e7eb;
+      color: #1f2937;
+    }
+  }
+
+  &.view {
+    background-color: #3b82f6;
+    color: white;
+
+    &:hover {
+      background-color: #2563eb;
+    }
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+@media (max-width: 768px) {
+  .card {
+    min-height: 280px;
+    padding: 1rem;
+  }
+
+  .thumbnailWrapper {
+    height: 160px;
+  }
+
+  .actions {
+    gap: 0.5rem;
+  }
+
+  .actionButton {
+    padding: 0.5rem;
+    font-size: 0.8125rem;
+  }
 }

@@ -5,7 +5,7 @@ import { thumbnailPlugin } from '@react-pdf-viewer/thumbnail';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/thumbnail/lib/styles/index.css';
 import styles from './PDFList.module.scss';
-import PDFCard from './components/PDFCard/PDFCard';
+import PDFCard, { EmptyPDFCard } from './components/PDFCard/PDFCard';
 import PDFPreview from './components/PDFPreview/PDFPreview';
 import { PDFItem } from './types';
 
@@ -24,16 +24,27 @@ const INITIAL_PDF_LIST: PDFItem[] = [
   },
 ];
 
-export default function PDFList() {
+interface PDFListProps {
+  onView: (id: number, url: string) => void;
+}
+
+export default function PDFList({ onView }: PDFListProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pdfList, setPdfList] = useState<PDFItem[]>(INITIAL_PDF_LIST);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const thumbnailPluginInstance = thumbnailPlugin();
 
-  const handleCardClick = (id: number) => {
+  const handlePreview = (id: number) => {
     if (pdfList.find(pdf => pdf.id === id)?.isDisabled) return;
     setSelectedId(id);
+  };
+
+  const handleView = (id: number) => {
+    const pdf = pdfList.find(pdf => pdf.id === id);
+    if (pdf?.isDisabled) return;
+    if (pdf) {
+      onView(pdf.id, pdf.url);
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -85,6 +96,10 @@ export default function PDFList() {
     handleFileUpload(e.dataTransfer.files);
   };
 
+  const handleClosePreview = () => {
+    setSelectedId(null);
+  };
+
   const selectedPdf = pdfList.find(pdf => pdf.id === selectedId);
 
   return (
@@ -112,18 +127,23 @@ export default function PDFList() {
         <div className={cx('content')}>
           <div className={cx('grid')}>
             {pdfList.map(pdf => (
-              <PDFCard
-                key={pdf.id}
-                pdf={pdf}
-                isSelected={selectedId === pdf.id}
-                onClick={handleCardClick}
-                onDelete={handleDelete}
-              />
+              <div key={pdf.id} className={cx('gridItem')}>
+                <PDFCard
+                  pdf={pdf}
+                  isSelected={selectedId === pdf.id}
+                  onPreview={handlePreview}
+                  onView={handleView}
+                  onDelete={handleDelete}
+                />
+              </div>
             ))}
+            <div className={cx('gridItem')}>
+              <EmptyPDFCard />
+            </div>
           </div>
-          {selectedPdf && <PDFPreview pdf={selectedPdf} />}
         </div>
         {isDragging && <div className={cx('dropOverlay')}>PDF 파일을 여기에 놓으세요</div>}
+        {selectedPdf && <PDFPreview pdf={selectedPdf} onClose={handleClosePreview} />}
       </div>
     </Worker>
   );
