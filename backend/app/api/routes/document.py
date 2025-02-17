@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File
 from langchain_community.vectorstores import LanceDB
 from odmantic import AIOEngine
 
@@ -37,10 +37,28 @@ async def get_document(
 async def upload_document(
     *,
     engine: AIOEngine = Depends(deps.engine_generator),
-    document_in: schemas.DocumentCreate,
+    file: UploadFile = File(...),
 ) -> Any:
-    document = await crud_document.create(engine, obj_in=document_in)
-    return document
+    try:
+        # Create document record with only the required fields
+        document_in = schemas.DocumentCreate(
+            name=file.filename,
+            content_type=file.content_type or "application/pdf",
+            file=file,  # Pass the file object to crud_document
+            metadata={}
+        )
+        
+        document = await crud_document.create(engine, obj_in=document_in)
+        return document
+        
+    except Exception as e:
+        logger.error(f"Upload failed: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to upload document: {str(e)}"
+        )
+    finally:
+        await file.close()
 
 
 @router.post("/delete", response_model=schemas.Msg)
@@ -62,7 +80,7 @@ async def process_document(
 ) -> Any:
     document = await crud_document.get(engine, id)
     if document is None:
-        return {"msg": "File not found in DB. Please add the file first."}
+        raise HTTPException(status_code=404, detail="File not found in the database.")
 
     file_path = document.path
     file_name = document.name

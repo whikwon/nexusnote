@@ -39,6 +39,20 @@ const MenuIcon = () => (
     </svg>
 );
 
+// Add this custom UploadIcon component near the MenuIcon component
+const UploadIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path 
+      d="M11 14.9861C11 15.5384 11.4477 15.9861 12 15.9861C12.5523 15.9861 13 15.5384 13 14.9861V7.82831L16.2428 11.0711L17.657 9.65685L12 4L6.34315 9.65685L7.75736 11.0711L11 7.82831V14.9861Z" 
+      fill="currentColor"
+    />
+    <path 
+      d="M4 14H6V18H18V14H20V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V14Z" 
+      fill="currentColor"
+    />
+  </svg>
+);
+
 function App() {
   // ===== Note related interfaces and state =====
   interface Note {
@@ -315,6 +329,47 @@ function App() {
     );
   });
 
+  // Add this state near other state declarations
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Update the handleFileUpload function
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/document/upload', {
+        method: 'POST',
+        headers: {
+          // Remove Content-Type header to let the browser set it with the boundary
+          'Accept': 'application/json',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Upload failed');
+      }
+
+      const data = await response.json();
+      console.log('Upload successful:', data);
+      // You might want to show a success message or load the new PDF
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      // You might want to show an error message to the user
+      alert(error instanceof Error ? error.message : 'Failed to upload PDF. Please try again.');
+    } finally {
+      setIsUploading(false);
+      // Clear the file input
+      event.target.value = '';
+    }
+  };
+
   return (
     <div style={{ height: "100vh", width: "100vw", overflow: "hidden" }}>
       <Worker workerUrl={new URL("pdfjs-dist/build/pdf.worker.js", import.meta.url).toString()}>
@@ -356,6 +411,26 @@ function App() {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ position: 'relative' }}>
+                        <Button 
+                          onClick={() => document.getElementById('pdf-upload')?.click()}
+                        >
+                          {isUploading ? (
+                            <span>Uploading...</span>
+                          ) : (
+                            <UploadIcon />
+                          )}
+                        </Button>
+                        <input
+                          type="file"
+                          id="pdf-upload"
+                          accept=".pdf"
+                          onChange={handleFileUpload}
+                          style={{ 
+                            display: 'none'
+                          }}
+                        />
+                      </div>
                       <ShowSearchPopover />
                       <ZoomOut />
                       <Zoom />

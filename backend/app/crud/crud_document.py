@@ -1,8 +1,7 @@
-import base64
-from pathlib import Path
-from uuid import uuid4
-
 from odmantic import AIOEngine
+from uuid import uuid4
+import shutil
+from pathlib import Path
 
 from app.core.config import settings
 from app.crud.base import CRUDBase
@@ -14,21 +13,38 @@ from app.schemas.document import DocumentCreate, DocumentUpdate
 
 class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
     async def create(self, engine: AIOEngine, *, obj_in: DocumentCreate) -> Document:
-        file_id = str(uuid4())
-        orig_file_name = obj_in.name
-        orig_suffix = Path(orig_file_name).suffix
-        file_path = settings.DOCUMENT_DIR_PATH / f"{file_id}{orig_suffix}"
-        content_bytes = base64.b64decode(obj_in.content)
+        try:
+            # Generate UUID for the file
+            file_id = str(uuid4())
+            
+            # Create uploads directory if it doesn't exist
+            upload_dir = Path(settings.DOCUMENT_DIR_PATH)
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Save file with UUID as filename, preserving original extension
+            original_extension = Path(obj_in.name).suffix
+            file_path = upload_dir / f"{file_id}{original_extension}"
+            
+            # Save uploaded file
+            with file_path.open("wb") as buffer:
+                shutil.copyfileobj(obj_in.file.file, buffer)
 
-        with open(file_path, "wb") as f:
-            f.write(content_bytes)
-
-        document = self.model(
-            id=file_id,
-            name=orig_file_name,
-            path=str(file_path.relative_to(settings.DOCUMENT_DIR_PATH)),
-        )
-        return await super().create(engine, obj_in=document)
+            # Create document record
+            db_obj = Document(
+                id=file_id,  # Use the same UUID as document ID
+                name=obj_in.name,
+                path=str(file_path.relative_to(settings.DOCUMENT_DIR_PATH)),
+                content_type=obj_in.content_type,
+                metadata=obj_in.metadata or {}
+            )
+            await engine.save(db_obj)
+            return db_obj
+            
+        except Exception as e:
+            # Clean up file if saved but database operation failed
+            if 'file_path' in locals() and file_path.exists():
+                file_path.unlink()
+            raise e
 
     async def get_with_related(
         self, engine: AIOEngine, id: str

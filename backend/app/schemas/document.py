@@ -1,12 +1,15 @@
 from datetime import datetime, timezone
 from typing import Any
+from fastapi import UploadFile
 
 from pydantic import BaseModel, Field
 
 
 class DocumentCreate(BaseModel):
     name: str
-    content: str  # base64 encoded
+    content_type: str
+    file: UploadFile
+    metadata: dict[str, Any] | None = None
 
 
 class DocumentUpdate(BaseModel):
@@ -20,6 +23,7 @@ class DocumentBase(BaseModel):
     id: str
     name: str  # User-visible name of the file, which can be updated or changed on the frontend.
     path: str  # Relative path to the file within the storage directory.
-    metadata: dict[str, Any] | None = None
+    content_type: str
+    metadata: dict | None = None
     created_at: datetime
     updated_at: datetime
