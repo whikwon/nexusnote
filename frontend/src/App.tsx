@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import React from "react";
 import {
     Viewer,
@@ -53,6 +53,32 @@ const UploadIcon = () => (
   </svg>
 );
 
+// Add these interfaces near the top of the file
+interface AnnotationBase {
+  id: string;
+  content: string;
+  highlightAreas: HighlightArea[];
+  quote: string;
+  image?: string;
+  comment?: string;
+}
+
+interface DocumentBase {
+  id: string;
+  name: string;
+  content_type: string;
+  path: string;
+  metadata: Record<string, any>;
+}
+
+// Add this interface near other interfaces
+interface ConceptCreate {
+  name: string;
+  annotationRefs: number[];
+  comment: string;
+  linkedConcepts: number[];
+}
+
 function App() {
   // ===== Note related interfaces and state =====
   interface Note {
@@ -61,7 +87,7 @@ function App() {
     highlightAreas: HighlightArea[];
     quote: string;
     image?: string;
-    comments?: string[];
+    comment?: string;
   }
 
   const [message, setMessage] = useState("");
@@ -74,15 +100,9 @@ function App() {
   const [activeTab, setActiveTab] = useState<"notes" | "thumbnails" | "bookmarks">("notes");
 
   // ===== Concept (Zettelkasten permanent note) related interfaces and state =====
-  interface Comment {
-    id: number;
-    content: string;
-  }
-
   interface Concept {
     id: number;
-    title: string;
-    content: string;
+    name: string;
     // annotationRefs are note ids from the notes state
     annotationRefs: number[];
     comment: string;
@@ -95,7 +115,6 @@ function App() {
 
   // Local state for concept creation and inputs
   const [newConceptTitle, setNewConceptTitle] = useState("");
-  const [newConceptContent, setNewConceptContent] = useState("");
 
   // For searching available notes and concepts when linking
   const [annotationSearchTerm, setAnnotationSearchTerm] = useState("");
@@ -247,22 +266,49 @@ function App() {
 
   // ===== Concept-related handlers =====
 
-  // Create a new concept
-  const handleAddConcept = () => {
-    if (newConceptTitle.trim() && newConceptContent.trim()) {
-      const newId = conceptIdRef.current + 1;
-      conceptIdRef.current = newId;
-      const newConcept: Concept = {
-        id: newId,
-        title: newConceptTitle,
-        content: newConceptContent,
-        annotationRefs: [],
-        comment: "",
-        linkedConcepts: [],
-      };
-      setConcepts((prev) => [...prev, newConcept]);
-      setNewConceptTitle("");
-      setNewConceptContent("");
+  // Update the handleAddConcept function
+  const handleAddConcept = async () => {
+    if (newConceptTitle.trim()) {
+      try {
+        // Prepare the concept data
+        const newConcept: ConceptCreate = {
+          name: newConceptTitle,
+          annotationRefs: [],
+          comment: "",
+          linkedConcepts: [],
+        };
+
+        // Make API request to create concept
+        const response = await fetch('http://localhost:8000/api/v1/concept/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(newConcept),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create concept');
+        }
+
+        const createdConcept = await response.json();
+        
+        // Update local state
+        setConcepts(prev => [...prev, createdConcept]);
+        setNewConceptTitle("");
+        
+        // Optionally, refresh document metadata to get the latest state
+        if (documentMetadata?.id) {
+          const metadataResponse = await fetch(`http://localhost:8000/api/v1/document/${documentMetadata.id}/metadata`);
+          if (metadataResponse.ok) {
+            const metadata = await metadataResponse.json();
+            setConcepts(metadata.concepts);
+          }
+        }
+      } catch (error) {
+        console.error('Error creating concept:', error);
+        // You might want to show an error message to the user here
+      }
     }
   };
 
@@ -324,15 +370,14 @@ function App() {
     if (activeConcept && (c.id === activeConcept.id || activeConcept.linkedConcepts.includes(c.id))) return false;
     const term = conceptSearchTerm.toLowerCase();
     return (
-      c.title.toLowerCase().includes(term) ||
-      c.content.toLowerCase().includes(term)
+      c.name.toLowerCase().includes(term)
     );
   });
 
   // Add this state near other state declarations
   const [isUploading, setIsUploading] = useState(false);
 
-  // Update the handleFileUpload function
+  // Update the handleFileUpload function to use fetchDocument instead of fetchPDF
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -345,7 +390,6 @@ function App() {
       const response = await fetch('http://localhost:8000/api/v1/document/upload', {
         method: 'POST',
         headers: {
-          // Remove Content-Type header to let the browser set it with the boundary
           'Accept': 'application/json',
         },
         body: formData,
@@ -358,17 +402,82 @@ function App() {
 
       const data = await response.json();
       console.log('Upload successful:', data);
-      // You might want to show a success message or load the new PDF
+      
+      // After successful upload, fetch and display the new PDF
+      if (data.id) {
+        await fetchDocument(data.id);
+      }
     } catch (error) {
       console.error('Error uploading file:', error);
-      // You might want to show an error message to the user
       alert(error instanceof Error ? error.message : 'Failed to upload PDF. Please try again.');
     } finally {
       setIsUploading(false);
-      // Clear the file input
       event.target.value = '';
     }
   };
+
+  // Add these states near other state declarations
+  const [pdfData, setPdfData] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Add these states near other state declarations
+  const [annotations, setAnnotations] = useState<AnnotationBase[]>([]);
+  const [documentMetadata, setDocumentMetadata] = useState<DocumentBase | null>(null);
+
+  // Update the fetchDocument function to properly handle the PDF data
+  const fetchDocument = async (documentId: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch PDF content and metadata in parallel
+      const [pdfResponse, metadataResponse] = await Promise.all([
+        fetch(`http://localhost:8000/api/v1/document/${documentId}`),
+        fetch(`http://localhost:8000/api/v1/document/${documentId}/metadata`)
+      ]);
+      
+      if (!pdfResponse.ok) {
+        throw new Error(`HTTP error! status: ${pdfResponse.status}`);
+      }
+      if (!metadataResponse.ok) {
+        throw new Error(`HTTP error! status: ${metadataResponse.status}`);
+      }
+      
+      // Handle PDF content - create a blob URL instead of base64
+      const blob = await pdfResponse.blob();
+      const pdfUrl = URL.createObjectURL(blob);
+      setPdfData(pdfUrl);
+      
+      // Handle metadata
+      const metadata = await metadataResponse.json();
+      console.log(metadata);
+      setDocumentMetadata(metadata.document);
+      setAnnotations(metadata.annotations);
+      setConcepts(metadata.concepts);
+      
+      setIsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load document');
+      setIsLoading(false);
+    }
+  };
+
+  // Add cleanup for blob URL when component unmounts
+  useEffect(() => {
+    return () => {
+      // Cleanup blob URL when component unmounts
+      if (pdfData) {
+        URL.revokeObjectURL(pdfData);
+      }
+    };
+  }, [pdfData]);
+
+  // Update useEffect to use the new function name
+  useEffect(() => {
+    const documentId = "8ed2cc65-796b-4a62-ae12-4c9cdc9cf584";
+    fetchDocument(documentId);
+  }, []);
 
   return (
     <div style={{ height: "100vh", width: "100vw", overflow: "hidden" }}>
@@ -572,16 +681,26 @@ function App() {
 
             {/* PDF Viewer */}
             <div style={{ flex: 1, height: "100%", overflow: "auto" }}>
-              <Viewer
-                fileUrl="/pdf/2501.00663v1.pdf"
-                plugins={[
-                  highlightPluginInstance,
-                  searchPluginInstance,
-                  thumbnailPluginInstance,
-                  toolbarPluginInstance,
-                  bookmarkPluginInstance,
-                ]}
-              />
+              {isLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  Loading PDF...
+                </div>
+              ) : error ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'red' }}>
+                  Error: {error}
+                </div>
+              ) : (
+                <Viewer
+                  fileUrl={pdfData || ''}
+                  plugins={[
+                    highlightPluginInstance,
+                    searchPluginInstance,
+                    thumbnailPluginInstance,
+                    toolbarPluginInstance,
+                    bookmarkPluginInstance,
+                  ]}
+                />
+              )}
             </div>
 
             {/* Right Sidebar: Concepts (Permanent Notes) */}
@@ -602,14 +721,6 @@ function App() {
                   value={newConceptTitle}
                   onChange={(e) => setNewConceptTitle(e.target.value)}
                   className="custom-input"
-                  style={{ width: "100%", marginBottom: "4px" }}
-                />
-                <textarea
-                  rows={2}
-                  placeholder="Content"
-                  value={newConceptContent}
-                  onChange={(e) => setNewConceptContent(e.target.value)}
-                  className="custom-textarea"
                   style={{ width: "100%", marginBottom: "4px" }}
                 />
                 <PrimaryButton onClick={handleAddConcept} style={{ width: "100%" }}>
@@ -634,10 +745,7 @@ function App() {
                         background: activeConcept?.id === concept.id ? "#eef" : "transparent",
                       }}
                     >
-                      <strong>{concept.title}</strong>
-                      <div style={{ fontSize: "0.8rem", color: "#555" }}>
-                        {concept.content.slice(0, 50)}...
-                      </div>
+                      <strong>{concept.name}</strong>
                     </div>
                   ))
                 )}
@@ -682,14 +790,10 @@ function App() {
                                 style={{ width: "100%", marginTop: "8px" }}
                               />
                             )}
-                            {note.comments && note.comments.length > 0 && (
+                            {note.comment && note.comment.length > 0 && (
                               <div style={{ marginTop: "4px" }}>
-                                <strong>Comments:</strong>
-                                {note.comments.map((c, i) => (
-                                  <div key={i} style={{ fontSize: "0.85rem" }}>
-                                    {truncate(c, 50)}
-                                  </div>
-                                ))}
+                                <strong>Comment:</strong>
+                                {note.comment}
                               </div>
                             )}
                           </div>
@@ -726,7 +830,7 @@ function App() {
                     )}
                   </div>
 
-                  {/* Comments Section */}
+                  {/* Comment Section */}
                   <div style={{ marginBottom: "16px" }}>
                     <strong style={{ marginBottom: "4px" }}>Concept Comment:</strong>
                     <textarea
@@ -750,7 +854,7 @@ function App() {
                           const linkedConcept = concepts.find((c) => c.id === linkId);
                           return (
                             <li key={linkId}>
-                              {linkedConcept ? linkedConcept.title : `Concept #${linkId}`}
+                              {linkedConcept ? linkedConcept.name : `Concept #${linkId}`}
                             </li>
                           );
                         })}
@@ -778,7 +882,7 @@ function App() {
                               }}
                               style={{ padding: "4px", cursor: "pointer", borderBottom: "1px solid #eee" }}
                             >
-                              {c.title.slice(0, 30)}...
+                              {c.name.slice(0, 30)}...
                             </div>
                           ))
                         )}

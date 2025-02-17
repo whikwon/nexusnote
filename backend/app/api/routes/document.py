@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File
 from langchain_community.vectorstores import LanceDB
 from odmantic import AIOEngine
+from fastapi.responses import StreamingResponse
 
 from app import schemas
 from app.api import deps
@@ -162,3 +163,54 @@ async def retrieve_and_respond(
         answer=len(retrieved_docs),
         section=most_similar_section,
     )
+
+
+@router.get("/{document_id}")
+async def get_document_file(
+    document_id: str,
+    engine: AIOEngine = Depends(deps.engine_generator),
+) -> Any:
+    """Get the PDF file content"""
+    document = await crud_document.get(engine, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    try:
+        file_path = settings.DOCUMENT_DIR_PATH / document.path
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="PDF file not found on server")
+            
+        def iterfile():
+            with open(file_path, "rb") as file:
+                yield from file
+                
+        return StreamingResponse(
+            iterfile(),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{document.name}"'
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error retrieving PDF: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving PDF file: {str(e)}"
+        )
+
+@router.get("/{document_id}/metadata")
+async def get_document_metadata(
+    document_id: str,
+    engine: AIOEngine = Depends(deps.engine_generator),
+) -> Any:
+    """Get document metadata including annotations and concepts"""
+    document, annotations, concepts = await crud_document.get_with_related(engine, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    return {
+        "document": document,
+        "annotations": annotations,
+        "concepts": concepts
+    }
