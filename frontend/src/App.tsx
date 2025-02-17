@@ -20,6 +20,7 @@ import {
 import "@react-pdf-viewer/highlight/lib/styles/index.css";
 
 import { searchPlugin } from "@react-pdf-viewer/search";
+import { bookmarkPlugin } from '@react-pdf-viewer/bookmark';
 
 import UpdateElectron from "@/components/update";
 import "./App.css";
@@ -54,9 +55,9 @@ function App() {
   const noteEles = useRef(new Map<number, HTMLElement>());
   const noteIdRef = useRef(0);
 
-  // ===== Left sidebar state (Notes/Thumbnails) =====
+  // ===== Left sidebar state (Notes/Thumbnails/Bookmarks) =====
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [activeTab, setActiveTab] = useState<"notes" | "thumbnails">("notes");
+  const [activeTab, setActiveTab] = useState<"notes" | "thumbnails" | "bookmarks">("notes");
 
   // ===== Concept (Zettelkasten permanent note) related interfaces and state =====
   interface Comment {
@@ -77,7 +78,6 @@ function App() {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [activeConcept, setActiveConcept] = useState<Concept | null>(null);
   const conceptIdRef = useRef(0);
-  const commentIdRef = useRef(0);
 
   // Local state for concept creation and inputs
   const [newConceptTitle, setNewConceptTitle] = useState("");
@@ -216,6 +216,10 @@ function App() {
   const searchPluginInstance = searchPlugin();
   const thumbnailPluginInstance = thumbnailPlugin();
   const toolbarPluginInstance = toolbarPlugin();
+  const bookmarkPluginInstance = bookmarkPlugin();
+
+  const { Bookmarks } = bookmarkPluginInstance;
+  const { Thumbnails } = thumbnailPluginInstance;
   const { Toolbar } = toolbarPluginInstance;
 
   const deleteNote = (id: number) => {
@@ -382,11 +386,11 @@ function App() {
           </div>
           {/* Main content area with left sidebar, PDF viewer, and right sidebar */}
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-            {/* Left Sidebar: Notes/Thumbnails */}
+            {/* Left Sidebar: Notes/Thumbnails/Bookmarks */}
             {sidebarVisible && (
               <div
                 style={{
-                  width: "300px",
+                  width: "350px",
                   borderRight: "1px solid rgba(0,0,0,0.3)",
                   overflowY: "auto",
                   padding: "10px",
@@ -410,6 +414,15 @@ function App() {
                     }}
                   >
                     Thumbnails
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab("bookmarks")}
+                    style={{
+                      flex: 1,
+                      background: activeTab === "bookmarks" ? "#ddd" : "transparent",
+                    }}
+                  >
+                    Bookmarks
                   </Button>
                 </div>
                 {activeTab === "notes" && (
@@ -473,8 +486,11 @@ function App() {
                 )}
                 {activeTab === "thumbnails" &&
                   (() => {
-                    const { Thumbnails } = thumbnailPluginInstance;
                     return <Thumbnails />;
+                  })()}
+                {activeTab === "bookmarks" &&
+                  (() => {
+                    return <Bookmarks />;
                   })()}
               </div>
             )}
@@ -482,12 +498,13 @@ function App() {
             {/* PDF Viewer */}
             <div style={{ flex: 1, height: "100%", overflow: "auto" }}>
               <Viewer
-                fileUrl="/pdf/sample.pdf"
+                fileUrl="/pdf/2501.00663v1.pdf"
                 plugins={[
                   highlightPluginInstance,
                   searchPluginInstance,
                   thumbnailPluginInstance,
                   toolbarPluginInstance,
+                  bookmarkPluginInstance,
                 ]}
               />
             </div>
