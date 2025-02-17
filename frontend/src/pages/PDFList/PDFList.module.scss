@@ -2,6 +2,23 @@
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  position: relative;
+  min-height: 100vh;
+
+  &.dragging {
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(59, 130, 246, 0.1);
+      border: 2px dashed #3b82f6;
+      border-radius: 0.5rem;
+      pointer-events: none;
+    }
+  }
 }
 
 .header {
@@ -124,5 +141,31 @@
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+.dropOverlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #3b82f6;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 500;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -60%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
   }
 }

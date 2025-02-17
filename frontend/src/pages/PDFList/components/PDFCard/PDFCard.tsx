@@ -9,9 +9,15 @@ interface PDFCardProps {
   pdf: PDFItem;
   isSelected: boolean;
   onClick: (id: number) => void;
+  onDelete: (id: number) => void;
 }
 
-export default function PDFCard({ pdf, isSelected, onClick }: PDFCardProps) {
+export default function PDFCard({ pdf, isSelected, onClick, onDelete }: PDFCardProps) {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(pdf.id);
+  };
+
   return (
     <div
       className={cx('card', {
@@ -20,6 +26,9 @@ export default function PDFCard({ pdf, isSelected, onClick }: PDFCardProps) {
       })}
       onClick={() => onClick(pdf.id)}
     >
+      <button className={cx('deleteButton')} onClick={handleDelete}>
+        ×
+      </button>
       <div className={cx('thumbnailWrapper')}>
         {!pdf.isDisabled && (
           <div style={{ height: '150px' }}>

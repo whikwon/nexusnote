@@ -27,6 +27,7 @@ const INITIAL_PDF_LIST: PDFItem[] = [
 export default function PDFList() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pdfList, setPdfList] = useState<PDFItem[]>(INITIAL_PDF_LIST);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thumbnailPluginInstance = thumbnailPlugin();
 
@@ -35,9 +36,18 @@ export default function PDFList() {
     setSelectedId(id);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+  const handleDelete = (id: number) => {
+    setPdfList(prev => prev.filter(pdf => pdf.id !== id));
+    if (selectedId === id) {
+      setSelectedId(null);
+    }
+  };
+
+  const handleFileUpload = (files: FileList | null) => {
+    if (!files) return;
+
+    const file = files[0];
+    if (file && file.type === 'application/pdf') {
       const newPdf: PDFItem = {
         id: Date.now(),
         title: file.name,
@@ -51,11 +61,41 @@ export default function PDFList() {
     fileInputRef.current?.click();
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    handleFileUpload(e.dataTransfer.files);
+  };
+
   const selectedPdf = pdfList.find(pdf => pdf.id === selectedId);
 
   return (
     <Worker workerUrl={new URL('pdfjs-dist/build/pdf.worker.js', import.meta.url).toString()}>
-      <div className={cx('container')}>
+      <div
+        className={cx('container', { dragging: isDragging })}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <div className={cx('header')}>
           <h1 className={cx('title')}>PDF 문서 목록</h1>
           <button className={cx('uploadButton')} onClick={handleUploadClick}>
@@ -64,7 +104,7 @@ export default function PDFList() {
           <input
             type="file"
             ref={fileInputRef}
-            onChange={handleFileUpload}
+            onChange={e => handleFileUpload(e.target.files)}
             accept=".pdf"
             style={{ display: 'none' }}
           />
@@ -77,12 +117,13 @@ export default function PDFList() {
                 pdf={pdf}
                 isSelected={selectedId === pdf.id}
                 onClick={handleCardClick}
+                onDelete={handleDelete}
               />
             ))}
           </div>
-          {/* TODO: 미리보기 영역은 필요 시 사용 */}
           {selectedPdf && <PDFPreview pdf={selectedPdf} />}
         </div>
+        {isDragging && <div className={cx('dropOverlay')}>PDF 파일을 여기에 놓으세요</div>}
       </div>
     </Worker>
   );
