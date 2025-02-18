@@ -7,6 +7,7 @@ class ConceptCreate(BaseModel):
     name: str
     comment: str
     annotation_ids: list[str] = Field(default_factory=list)
+    connected_concepts: list[str] = Field(default_factory=list)
 
 
 class ConceptUpdate(BaseModel):
@@ -14,8 +15,7 @@ class ConceptUpdate(BaseModel):
     name: str
     comment: str
     annotation_ids: list[str] = Field(default_factory=list)
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ConceptBase(BaseModel):
@@ -23,3 +23,4 @@ class ConceptBase(BaseModel):
     name: str
     comment: str
     annotation_ids: list[str] = Field(default_factory=list)
+    connected_concepts: list[str] = Field(default_factory=list)

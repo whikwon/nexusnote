@@ -1,10 +1,10 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from langchain_community.vectorstores import LanceDB
 from odmantic import AIOEngine
-from fastapi.responses import StreamingResponse
 
 from app import schemas
 from app.api import deps
@@ -208,4 +208,8 @@ async def get_document_metadata(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    return {"document": document, "annotations": annotations, "concepts": concepts}
+    return {
+        "document": document,
+        "annotations": annotations,
+        "concepts": concepts,
+    }

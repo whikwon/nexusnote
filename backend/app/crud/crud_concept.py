@@ -7,12 +7,51 @@ from app.schemas.concept import ConceptCreate, ConceptUpdate
 
 
 class CRUDConcept(CRUDBase[Concept, ConceptCreate, ConceptUpdate]):
-    async def delete(self, engine: AIOEngine, *, id: str) -> Concept:
+    async def delete(self, engine: AIOEngine, id: str) -> Concept:
         concept = await super().delete(engine, id=id)
 
         # Cleanup: delete all Link documents that reference this concept.
         await engine.remove(Link, {"concept_ids": {"$in": [id]}})
         return concept
+
+    # New method: get all Link documents that reference the given concept.
+    async def get_links(self, engine: AIOEngine, concept_id: str) -> list[Link]:
+        return await engine.find(Link, {"concept_ids": {"$in": [concept_id]}})
+
+    # New method: get connected concepts by querying Link documents.
+    async def get_connected_concepts(
+        self, engine: AIOEngine, concept_id: str
+    ) -> list[Concept]:
+        links = await self.get_links(engine, concept_id=concept_id)
+        connected_ids = set()
+        for link in links:
+            # Collect all connected concept_ids except the current one.
+            for cid in link.concept_ids:
+                if cid != concept_id:
+                    connected_ids.add(cid)
+        return connected_ids
+
+    async def get(
+        self, engine: AIOEngine, id: str, populate_connections: bool = True
+    ) -> Concept:
+        instance = await super().get(engine, id)
+        if instance and populate_connections:
+            connected = await self.get_connected_concepts(engine, concept_id=id)
+            # Dynamically attach the connected concepts as a new attribute.
+            instance.connected_concepts = connected
+        return instance
+
+    async def get_multi(
+        self, engine: AIOEngine, *queries, populate_connections: bool = True
+    ) -> list[Concept]:
+        instances = await super().get_multi(engine, *queries)
+        if populate_connections:
+            for inst in instances:
+                connected = await self.get_connected_concepts(
+                    engine, concept_id=inst.id
+                )
+                inst.connected_concepts = connected
+        return instances
 
 
 concept = CRUDConcept(Concept)

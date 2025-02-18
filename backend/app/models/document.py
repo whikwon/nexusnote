@@ -1,6 +1,7 @@
-from uuid import uuid4
 from datetime import datetime, timezone
-from odmantic import Model, Field
+from uuid import uuid4
+
+from odmantic import Field, Model
 
 
 class Document(Model):

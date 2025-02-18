@@ -39,3 +39,12 @@ async def update_concept(
     db_obj = await crud_concept.get(engine, concept_in.id)
     concept = await crud_concept.update(engine, db_obj=db_obj, obj_in=concept_in)
     return concept
+
+
+@router.get("/all", response_model=list[schemas.ConceptBase])
+async def get_all_concepts(
+    *, engine: AIOEngine = Depends(deps.engine_generator)
+) -> Any:
+    # Get all concepts from the database by calling a new crud function.
+    concepts = await crud_concept.get_multi(engine)
+    return concepts

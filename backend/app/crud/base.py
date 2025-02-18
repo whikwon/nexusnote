@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, List, TypeVar, Union
+from typing import Any, Dict, Generic, TypeVar, Union
 
 from fastapi.encoders import jsonable_encoder
 from odmantic import AIOEngine, Model
@@ -29,16 +29,16 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self,
         engine: AIOEngine,
         *queries: QueryExpression | dict | bool,
-    ) -> List[ModelType]:  # noqa
+    ) -> list[ModelType]:  # noqa
         return await engine.find(self.model, *queries)
 
-    async def create(self, engine: AIOEngine, *, obj_in: CreateSchemaType) -> ModelType:  # noqa
+    async def create(self, engine: AIOEngine, obj_in: CreateSchemaType) -> ModelType:  # noqa
         obj_in_data = jsonable_encoder(obj_in)
         db_obj = self.model(**obj_in_data)  # type: ignore
         return await engine.save(db_obj)
 
     async def create_multi(
-        self, engine: AIOEngine, *, objs_in: list[CreateSchemaType]
+        self, engine: AIOEngine, objs_in: list[CreateSchemaType]
     ) -> list[ModelType]:
         db_objs = [self.model(**jsonable_encoder(obj_in)) for obj_in in objs_in]
         return await engine.save_all(db_objs)
@@ -46,7 +46,6 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     async def update(
         self,
         engine: AIOEngine,
-        *,
         db_obj: ModelType,
         obj_in: Union[UpdateSchemaType, Dict[str, Any]],  # noqa
     ) -> ModelType:
@@ -62,7 +61,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         await engine.save(db_obj)
         return db_obj
 
-    async def delete(self, engine: AIOEngine, *, id: str) -> ModelType:
+    async def delete(self, engine: AIOEngine, id: str) -> ModelType:
         obj = await self.get(engine, id)
         if obj:
             await engine.delete(obj)
