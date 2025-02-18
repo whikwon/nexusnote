@@ -178,7 +178,6 @@ function App() {
                     }
 
                     const responseJson = await response.json();
-                    console.log(responseJson);
                     const newNote: Note = {
                       id: responseJson.id,
                       file_id: responseJson.file_id,
@@ -186,7 +185,6 @@ function App() {
                       highlight_areas: responseJson.highlight_areas,
                       quote: responseJson.quote,
                     };
-                    console.log(newNote);
                     setNotes(prevNotes => [...prevNotes, newNote]);
                     setMessage('');
                     props.cancel();
@@ -508,7 +506,6 @@ function App() {
 
       // Handle metadata
       const metadata = await metadataResponse.json();
-      console.log(metadata);
       setDocumentMetadata(metadata.document);
       setAnnotations(metadata.annotations);
       setNotes(metadata.annotations);
@@ -533,7 +530,7 @@ function App() {
 
   // Update useEffect to use the new function name
   useEffect(() => {
-    const documentId = '8ed2cc65-796b-4a62-ae12-4c9cdc9cf584';
+    const documentId = '418f8400-25fc-45f6-ba89-42d73d1b2e63';
     fetchDocument(documentId);
   }, []);
 
@@ -546,7 +543,6 @@ function App() {
         }
         const data = await response.json();
         setAllConcepts(data);
-        console.log(data);
       } catch (error) {
         console.error('Error fetching concepts:', error);
       }
@@ -557,7 +553,6 @@ function App() {
 
   // Helper function to return a concept's name by matching its id
   const getConceptName = (conceptId: string) => {
-    console.log(allConcepts);
     const concept = allConcepts.find(c => c.id === conceptId);
     return concept ? concept.name : conceptId;
   };

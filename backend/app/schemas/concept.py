@@ -7,7 +7,6 @@ class ConceptCreate(BaseModel):
     name: str
     comment: str
     annotation_ids: list[str] = Field(default_factory=list)
-    connected_concepts: list[str] = Field(default_factory=list)
 
 
 class ConceptUpdate(BaseModel):
@@ -23,4 +22,4 @@ class ConceptBase(BaseModel):
     name: str
     comment: str
     annotation_ids: list[str] = Field(default_factory=list)
-    connected_concepts: list[str] = Field(default_factory=list)
+    linked_concept_ids: list[str] = Field(default_factory=list)
