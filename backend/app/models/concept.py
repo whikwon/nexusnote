@@ -9,6 +9,6 @@ class Concept(Model):
     name: str
     comment: str
     annotation_ids: list[str] = Field(default_factory=list)
-    connected_concepts: list[str] = Field(default_factory=list)
+    linked_concept_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

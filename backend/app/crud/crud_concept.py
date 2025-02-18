@@ -18,27 +18,27 @@ class CRUDConcept(CRUDBase[Concept, ConceptCreate, ConceptUpdate]):
     async def get_links(self, engine: AIOEngine, concept_id: str) -> list[Link]:
         return await engine.find(Link, {"concept_ids": {"$in": [concept_id]}})
 
-    # New method: get connected concepts by querying Link documents.
-    async def get_connected_concepts(
+    # New method: get linked concepts by querying Link documents.
+    async def get_linked_concept_ids(
         self, engine: AIOEngine, concept_id: str
     ) -> list[Concept]:
         links = await self.get_links(engine, concept_id=concept_id)
-        connected_ids = set()
+        linked_ids = set()
         for link in links:
-            # Collect all connected concept_ids except the current one.
+            # Collect all linked concept_ids except the current one.
             for cid in link.concept_ids:
                 if cid != concept_id:
-                    connected_ids.add(cid)
-        return connected_ids
+                    linked_ids.add(cid)
+        return linked_ids
 
     async def get(
         self, engine: AIOEngine, id: str, populate_connections: bool = True
     ) -> Concept:
         instance = await super().get(engine, id)
         if instance and populate_connections:
-            connected = await self.get_connected_concepts(engine, concept_id=id)
-            # Dynamically attach the connected concepts as a new attribute.
-            instance.connected_concepts = connected
+            linked = await self.get_linked_concept_ids(engine, concept_id=id)
+            # Dynamically attach the linked concepts as a new attribute.
+            instance.linked_concept_ids = linked
         return instance
 
     async def get_multi(
@@ -47,10 +47,8 @@ class CRUDConcept(CRUDBase[Concept, ConceptCreate, ConceptUpdate]):
         instances = await super().get_multi(engine, *queries)
         if populate_connections:
             for inst in instances:
-                connected = await self.get_connected_concepts(
-                    engine, concept_id=inst.id
-                )
-                inst.connected_concepts = connected
+                linked = await self.get_linked_concept_ids(engine, concept_id=inst.id)
+                inst.linked_concept_ids = linked
         return instances
 
 

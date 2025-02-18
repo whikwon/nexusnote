@@ -60,7 +60,7 @@ interface ConceptCreate {
   name: string;
   annotation_ids?: number[];
   comment: string;
-  connected_concepts?: number[];
+  linked_concept_ids?: number[];
 }
 
 function App() {
@@ -87,7 +87,7 @@ function App() {
     name: string;
     comment: string;
     annotation_ids: string[];
-    connected_concepts: string[];
+    linked_concept_ids: string[];
   }
 
   const [documentConcepts, setDocumentConcepts] = useState<Concept[]>([]);
@@ -295,7 +295,7 @@ function App() {
           name: newConceptTitle,
           annotation_ids: [],
           comment: '',
-          connected_concepts: [],
+          linked_concept_ids: [],
         };
 
         // Make API request to create concept
@@ -361,7 +361,7 @@ function App() {
     if (
       activeConcept &&
       otherConceptId !== activeConcept.id &&
-      !activeConcept.connected_concepts.includes(otherConceptId)
+      !activeConcept.linked_concept_ids.includes(otherConceptId)
     ) {
       try {
         const payload = { concept_ids: [activeConcept.id, otherConceptId] };
@@ -375,7 +375,7 @@ function App() {
         }
         const updatedConcept = {
           ...activeConcept,
-          connected_concepts: [...activeConcept.connected_concepts, otherConceptId],
+          linked_concept_ids: [...activeConcept.linked_concept_ids, otherConceptId],
         };
         updateConcept(updatedConcept);
       } catch (error) {
@@ -424,7 +424,7 @@ function App() {
     // Exclude the active concept and already linked ones
     if (
       activeConcept &&
-      (c.id === activeConcept.id || activeConcept.connected_concepts.includes(c.id))
+      (c.id === activeConcept.id || activeConcept.linked_concept_ids.includes(c.id))
     )
       return false;
     const term = conceptSearchTerm.toLowerCase();
@@ -947,12 +947,12 @@ function App() {
 
                   {/* Linked Concepts Section */}
                   <div>
-                    <strong>Connected Concepts:</strong>
-                    {activeConcept.connected_concepts.length === 0 ? (
+                    <strong>Linked Concepts:</strong>
+                    {activeConcept.linked_concept_ids.length === 0 ? (
                       <p>No linked concepts.</p>
                     ) : (
                       <ul>
-                        {activeConcept.connected_concepts.map(linkId => {
+                        {activeConcept.linked_concept_ids.map(linkId => {
                           const linkedConcept =
                             documentConcepts.find(c => c.id === linkId) ||
                             allConcepts.find(c => c.id === linkId);
