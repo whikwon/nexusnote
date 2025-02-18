@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import classNames from 'classnames/bind';
 import { Worker } from '@react-pdf-viewer/core';
 import { thumbnailPlugin } from '@react-pdf-viewer/thumbnail';
@@ -11,56 +11,113 @@ import { PDFItem } from './types';
 
 const cx = classNames.bind(styles);
 
-const INITIAL_PDF_LIST: PDFItem[] = [
-  {
-    id: 1,
-    title: 'sample.pdf',
-    url: '/pdf/sample.pdf',
-  },
-  {
-    id: 2,
-    title: '2501.00663v1.pdf',
-    url: '/pdf/2501.00663v1.pdf',
-  },
-];
-
 interface PDFListProps {
-  onView: (id: number, url: string) => void;
+  onView: (id: string, url: string, title: string) => void;
 }
 
 export default function PDFList({ onView }: PDFListProps) {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [pdfList, setPdfList] = useState<PDFItem[]>(INITIAL_PDF_LIST);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pdfList, setPdfList] = useState<PDFItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePreview = (id: number) => {
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/document/list', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch documents');
+        }
+
+        const documents = await response.json();
+        const formattedDocuments = documents.map((doc: any) => ({
+          id: doc.id,
+          title: doc.name,
+          url: `http://localhost:8000/api/v1/document/${doc.id}`,
+        }));
+        setPdfList(formattedDocuments);
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+      }
+    };
+
+    fetchDocuments();
+  }, []);
+
+  const handlePreview = (id: string) => {
     if (pdfList.find(pdf => pdf.id === id)?.isDisabled) return;
     setSelectedId(id);
   };
 
-  const handleView = (id: number) => {
+  const handleView = (id: string) => {
     const pdf = pdfList.find(pdf => pdf.id === id);
     if (pdf?.isDisabled) return;
     if (pdf) {
-      onView(pdf.id, pdf.url);
+      onView(pdf.id, pdf.url, pdf.title);
     }
   };
 
-  const handleDelete = (id: number) => {
-    setPdfList(prev => prev.filter(pdf => pdf.id !== id));
-    if (selectedId === id) {
-      setSelectedId(null);
+  const handleDelete = async (id: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/document/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to delete document');
+      }
+
+      setPdfList(prev => prev.filter(pdf => pdf.id !== id));
+      if (selectedId === id) {
+        setSelectedId(null);
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete PDF. Please try again.');
     }
   };
 
-  const handleFileUpload = (files: FileList | null) => {
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files) return;
 
     const file = files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
     if (file && file.type === 'application/pdf') {
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/document/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Upload failed');
+        }
+
+        const data = await response.json();
+        // if (data.id) {
+        //   await fetchDocument(data.id);
+        // }
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        alert(error instanceof Error ? error.message : 'Failed to upload PDF. Please try again.');
+      }
+
       const newPdf: PDFItem = {
-        id: Date.now(),
+        id: Date.now().toString(),
         title: file.name,
         url: URL.createObjectURL(file),
       };
