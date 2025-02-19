@@ -18,6 +18,8 @@ export default function Main() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showList, setShowList] = useState(true);
 
+  const activeDocumentId = openTabs.find(tab => tab.id === activeTabId)?.documentId ?? null;
+
   const handleViewPDF = (id: string, url: string, title: string) => {
     const newTab: PDFTab = {
       id: crypto.randomUUID(),
@@ -56,7 +58,11 @@ export default function Main() {
     <div className={cx('container')}>
       <div className={cx('content', { 'with-viewer': !showList })}>
         <div className={cx('list-container', { hidden: !showList })}>
-          <PDFList activePdfId={activeTabId} onView={handleViewPDF} setShowList={setShowList} />
+          <PDFList
+            activePdfId={activeDocumentId}
+            onView={handleViewPDF}
+            setShowList={setShowList}
+          />
         </div>
 
         {openTabs.length > 0 && (
