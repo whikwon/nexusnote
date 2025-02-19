@@ -6,13 +6,13 @@ import { PDFItem } from './types';
 const cx = classNames.bind(styles);
 
 interface PDFListProps {
+  activePdfId?: string | null;
   onView: (id: string, url: string, title: string) => void;
   setShowList: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function PDFList({ onView, setShowList }: PDFListProps) {
+export default function PDFList({ activePdfId, onView, setShowList }: PDFListProps) {
   const [pdfList, setPdfList] = useState<PDFItem[]>([]);
-  const [activePdfId, setActivePdfId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -52,7 +52,6 @@ export default function PDFList({ onView, setShowList }: PDFListProps) {
     const pdf = pdfList.find(pdf => pdf.id === id);
     if (pdf) {
       onView(pdf.id, pdf.url, pdf.title);
-      setActivePdfId(pdf.id);
     }
   };
 
