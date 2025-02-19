@@ -39,16 +39,30 @@ const BackIcon = () => (
   </svg>
 );
 
-interface AnnotationBase {
+interface DocumentMetadata {
   id: string;
-  file_id: string;
-  highlight_areas: HighlightArea[];
-  created_at: string;
-  updated_at: string;
-  comment: string;
+  name: string;
+  path: string;
+  content_type: string;
+  metadata: Record<string, any>;
 }
 
-// Add this interface near other interfaces
+interface Annotation {
+  id: string;
+  file_id: string;
+  comment: string;
+  highlight_areas: HighlightArea[];
+  quote: string;
+}
+
+interface Concept {
+  id: string;
+  name: string;
+  comment: string;
+  annotation_ids: string[];
+  linked_concept_ids: string[];
+}
+
 interface ConceptCreate {
   name: string;
   annotation_ids?: number[];
@@ -63,16 +77,8 @@ interface AppProps {
 
 function App({ documentId, onBack }: AppProps) {
   // ===== Note related interfaces and state =====
-  interface Note {
-    id: string;
-    file_id: string;
-    comment: string;
-    highlight_areas: HighlightArea[];
-    quote: string;
-  }
-
   const [message, setMessage] = useState('');
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setAnnotations] = useState<Annotation[]>([]);
   const noteEles = useRef(new Map<string, HTMLElement>());
 
   // New state: which annotation (note) is having its "Add to Concept" dropdown open
@@ -87,13 +93,6 @@ function App({ documentId, onBack }: AppProps) {
   const [activeTab, setActiveTab] = useState<'notes' | 'thumbnails' | 'bookmarks'>('notes');
 
   // ===== Concept (Zettelkasten permanent note) related interfaces and state =====
-  interface Concept {
-    id: string;
-    name: string;
-    comment: string;
-    annotation_ids: string[];
-    linked_concept_ids: string[];
-  }
 
   const [documentConcepts, setDocumentConcepts] = useState<Concept[]>([]);
   const [allConcepts, setAllConcepts] = useState<Concept[]>([]);
@@ -183,14 +182,14 @@ function App({ documentId, onBack }: AppProps) {
                     }
 
                     const responseJson = await response.json();
-                    const newNote: Note = {
+                    const newNote: Annotation = {
                       id: responseJson.id,
                       file_id: responseJson.file_id,
                       comment: responseJson.comment,
                       highlight_areas: responseJson.highlight_areas,
                       quote: responseJson.quote,
                     };
-                    setNotes(prevNotes => [...prevNotes, newNote]);
+                    setAnnotations(prevNotes => [...prevNotes, newNote]);
                     setMessage('');
                     props.cancel();
                   } catch (error) {
@@ -216,7 +215,7 @@ function App({ documentId, onBack }: AppProps) {
     );
   };
 
-  const jumpToNote = (note: Note) => {
+  const jumpToNote = (note: Annotation) => {
     const noteElement = noteEles.current.get(note.id);
     if (noteElement) {
       noteElement.scrollIntoView();
@@ -275,7 +274,7 @@ function App({ documentId, onBack }: AppProps) {
       if (!response.ok) {
         throw new Error('Failed to delete annotation');
       }
-      setNotes(prev => prev.filter(note => note.id !== id));
+      setAnnotations(prev => prev.filter(note => note.id !== id));
     } catch (error) {
       console.error('Error deleting note:', error);
       setMessage('Failed to delete note');
@@ -440,7 +439,7 @@ function App({ documentId, onBack }: AppProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Add these states near other state declarations
-  const [documentMetadata, setDocumentMetadata] = useState<Document | null>(null);
+  const [documentMetadata, setDocumentMetadata] = useState<DocumentMetadata | null>(null);
 
   // Update the fetchDocument function to properly handle the PDF data
   const fetchDocument = async (documentId: string) => {
@@ -469,7 +468,7 @@ function App({ documentId, onBack }: AppProps) {
       // Handle metadata
       const metadata = await metadataResponse.json();
       setDocumentMetadata(metadata.document);
-      setNotes(metadata.annotations);
+      setAnnotations(metadata.annotations);
 
       setIsLoading(false);
     } catch (err) {
