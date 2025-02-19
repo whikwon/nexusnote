@@ -46,6 +46,13 @@ const UploadIcon = () => (
   </svg>
 );
 
+// Add this BackIcon component near other icon components
+const BackIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor" />
+  </svg>
+);
+
 interface AnnotationBase {
   id: string;
   file_id: string;
@@ -63,7 +70,12 @@ interface ConceptCreate {
   linked_concept_ids?: number[];
 }
 
-function App() {
+interface AppProps {
+  documentId: string;
+  onBack: () => void;
+}
+
+function App({ documentId, onBack }: AppProps) {
   // ===== Note related interfaces and state =====
   interface Note {
     id: string;
@@ -528,11 +540,11 @@ function App() {
     };
   }, [pdfData]);
 
-  // Update useEffect to use the new function name
   useEffect(() => {
-    const documentId = '418f8400-25fc-45f6-ba89-42d73d1b2e63';
-    fetchDocument(documentId);
-  }, []);
+    if (documentId) {
+      fetchDocument(documentId);
+    }
+  }, [documentId]);
 
   useEffect(() => {
     const fetchConcepts = async () => {
@@ -561,7 +573,6 @@ function App() {
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <Worker workerUrl={new URL('pdfjs-dist/build/pdf.worker.js', import.meta.url).toString()}>
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {/* Top Toolbar (with left sidebar toggle and PDF viewer toolbar) */}
           <div
             style={{
               padding: '8px',
@@ -569,11 +580,17 @@ function App() {
               borderBottom: '1px solid #ccc',
               display: 'flex',
               alignItems: 'center',
+              gap: '8px',
             }}
           >
-            <Button onClick={toggleSidebar} style={{ marginRight: '8px' }}>
-              <MenuIcon />
-            </Button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button onClick={onBack}>
+                <BackIcon />
+              </Button>
+              <Button onClick={toggleSidebar}>
+                <MenuIcon />
+              </Button>
+            </div>
             <Toolbar>
               {(props: ToolbarSlot) => {
                 const {

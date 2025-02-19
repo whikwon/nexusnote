@@ -1,5 +1,5 @@
 export interface PDFItem {
-  id: number;
+  id: string;
   title: string;
   url: string;
   isDisabled?: boolean;

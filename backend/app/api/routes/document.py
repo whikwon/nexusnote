@@ -61,6 +61,16 @@ async def upload_document(
         await file.close()
 
 
+@router.get("/list", response_model=list[schemas.DocumentBase])
+async def list_documents(
+    *,
+    engine: AIOEngine = Depends(deps.engine_generator),
+) -> Any:
+    """Get all documents"""
+    documents = await crud_document.get_multi(engine)
+    return documents
+
+
 @router.post("/delete", response_model=schemas.Msg)
 async def delete_document(
     *,
