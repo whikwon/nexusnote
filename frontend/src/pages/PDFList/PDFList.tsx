@@ -135,8 +135,12 @@ export default function PDFList({ activePdfId, onView, setShowList }: PDFListPro
       <div className={cx('content')}>
         <ul className={cx('pdfList')}>
           {pdfList.map(pdf => (
-            <li key={pdf.id} className={cx('pdfItem', { active: activePdfId === pdf.id })}>
-              <span onClick={() => handleView(pdf.id)}>{pdf.title}</span>
+            <li
+              onClick={() => handleView(pdf.id)}
+              key={pdf.id}
+              className={cx('pdfItem', { active: activePdfId === pdf.id })}
+            >
+              <span>{pdf.title}</span>
               <button onClick={() => handleDelete(pdf.id)}>Delete</button>
             </li>
           ))}
