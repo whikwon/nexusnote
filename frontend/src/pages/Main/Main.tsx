@@ -56,7 +56,7 @@ export default function Main() {
     <div className={cx('container')}>
       <div className={cx('content', { 'with-viewer': !showList })}>
         <div className={cx('list-container', { hidden: !showList })}>
-          <PDFList onView={handleViewPDF} />
+          <PDFList onView={handleViewPDF} setShowList={setShowList} />
         </div>
 
         {openTabs.length > 0 && (

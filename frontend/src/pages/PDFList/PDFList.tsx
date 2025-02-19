@@ -1,24 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import classNames from 'classnames/bind';
-import { Worker } from '@react-pdf-viewer/core';
-import { thumbnailPlugin } from '@react-pdf-viewer/thumbnail';
-import '@react-pdf-viewer/core/lib/styles/index.css';
-import '@react-pdf-viewer/thumbnail/lib/styles/index.css';
 import styles from './PDFList.module.scss';
-import PDFCard, { EmptyPDFCard } from './components/PDFCard/PDFCard';
-import PDFPreview from './components/PDFPreview/PDFPreview';
 import { PDFItem } from './types';
 
 const cx = classNames.bind(styles);
 
 interface PDFListProps {
   onView: (id: string, url: string, title: string) => void;
+  setShowList: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function PDFList({ onView }: PDFListProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export default function PDFList({ onView, setShowList }: PDFListProps) {
   const [pdfList, setPdfList] = useState<PDFItem[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
+  const [activePdfId, setActivePdfId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,16 +44,15 @@ export default function PDFList({ onView }: PDFListProps) {
     fetchDocuments();
   }, []);
 
-  const handlePreview = (id: string) => {
-    if (pdfList.find(pdf => pdf.id === id)?.isDisabled) return;
-    setSelectedId(id);
-  };
-
   const handleView = (id: string) => {
+    if (activePdfId === id) {
+      setShowList(false);
+      return;
+    }
     const pdf = pdfList.find(pdf => pdf.id === id);
-    if (pdf?.isDisabled) return;
     if (pdf) {
       onView(pdf.id, pdf.url, pdf.title);
+      setActivePdfId(pdf.id);
     }
   };
 
@@ -79,9 +72,6 @@ export default function PDFList({ onView }: PDFListProps) {
       }
 
       setPdfList(prev => prev.filter(pdf => pdf.id !== id));
-      if (selectedId === id) {
-        setSelectedId(null);
-      }
     } catch (error) {
       console.error('Error deleting document:', error);
       alert(error instanceof Error ? error.message : 'Failed to delete PDF. Please try again.');
@@ -108,20 +98,19 @@ export default function PDFList({ onView }: PDFListProps) {
         }
 
         const data = await response.json();
-        // if (data.id) {
-        //   await fetchDocument(data.id);
-        // }
+
+        const newPdf: PDFItem = {
+          id: data.id ? data.id.toString() : Date.now().toString(),
+          title: file.name,
+          url: data.id
+            ? `http://localhost:8000/api/v1/document/${data.id}`
+            : URL.createObjectURL(file),
+        };
+        setPdfList(prev => [...prev, newPdf]);
       } catch (error) {
         console.error('Error uploading file:', error);
         alert(error instanceof Error ? error.message : 'Failed to upload PDF. Please try again.');
       }
-
-      const newPdf: PDFItem = {
-        id: Date.now().toString(),
-        title: file.name,
-        url: URL.createObjectURL(file),
-      };
-      setPdfList(prev => [...prev, newPdf]);
     }
   };
 
@@ -129,79 +118,31 @@ export default function PDFList({ onView }: PDFListProps) {
     fileInputRef.current?.click();
   };
 
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    handleFileUpload(e.dataTransfer.files);
-  };
-
-  const handleClosePreview = () => {
-    setSelectedId(null);
-  };
-
-  const selectedPdf = pdfList.find(pdf => pdf.id === selectedId);
-
   return (
-    <Worker workerUrl={new URL('pdfjs-dist/build/pdf.worker.js', import.meta.url).toString()}>
-      <div
-        className={cx('container', { dragging: isDragging })}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        <div className={cx('header')}>
-          <h1 className={cx('title')}>PDF 문서 목록</h1>
-          <button className={cx('uploadButton')} onClick={handleUploadClick}>
-            PDF 업로드
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={e => handleFileUpload(e.target.files)}
-            accept=".pdf"
-            style={{ display: 'none' }}
-          />
-        </div>
-        <div className={cx('content')}>
-          <div className={cx('grid')}>
-            {pdfList.map(pdf => (
-              <div key={pdf.id} className={cx('gridItem')}>
-                <PDFCard
-                  pdf={pdf}
-                  isSelected={selectedId === pdf.id}
-                  onPreview={handlePreview}
-                  onView={handleView}
-                  onDelete={handleDelete}
-                />
-              </div>
-            ))}
-            <div className={cx('gridItem')}>
-              <EmptyPDFCard />
-            </div>
-          </div>
-        </div>
-        {isDragging && <div className={cx('dropOverlay')}>PDF 파일을 여기에 놓으세요</div>}
-        {selectedPdf && <PDFPreview pdf={selectedPdf} onClose={handleClosePreview} />}
+    <div className={cx('container')}>
+      <div className={cx('header')}>
+        <h1 className={cx('title')}>PDF 문서 목록</h1>
+        <button className={cx('uploadButton')} onClick={handleUploadClick}>
+          PDF 업로드
+        </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={e => handleFileUpload(e.target.files)}
+          accept=".pdf"
+          style={{ display: 'none' }}
+        />
       </div>
-    </Worker>
+      <div className={cx('content')}>
+        <ul className={cx('pdfList')}>
+          {pdfList.map(pdf => (
+            <li key={pdf.id} className={cx('pdfItem', { active: activePdfId === pdf.id })}>
+              <span onClick={() => handleView(pdf.id)}>{pdf.title}</span>
+              <button onClick={() => handleDelete(pdf.id)}>Delete</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
