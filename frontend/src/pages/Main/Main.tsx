@@ -21,15 +21,21 @@ export default function Main() {
   const activeDocumentId = openTabs.find(tab => tab.id === activeTabId)?.documentId ?? null;
 
   const handleViewPDF = (id: string, url: string, title: string) => {
-    const newTab: PDFTab = {
-      id: crypto.randomUUID(),
-      documentId: id,
-      url,
-      title,
-    };
-
-    setOpenTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
+    // Check if a tab with the given documentId already exists.
+    // If so, reuse it by setting it as active, rather than creating a new tab.
+    const existingTab = openTabs.find(tab => tab.documentId === id);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+    } else {
+      const newTab: PDFTab = {
+        id: crypto.randomUUID(),
+        documentId: id,
+        url,
+        title,
+      };
+      setOpenTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
+    }
     setShowList(false);
   };
 
@@ -84,14 +90,13 @@ export default function Main() {
                 </div>
               ))}
             </div>
-            {activeTabId && (
-              <div className={cx('pdf-viewer')}>
-                <App
-                  documentId={openTabs.find(tab => tab.id === activeTabId)!.documentId}
-                  onBack={handleBackToList}
-                />
-              </div>
-            )}
+            <div className={cx('pdf-viewer')}>
+              {openTabs.map(tab => (
+                <div key={tab.id} style={{ display: activeTabId === tab.id ? 'block' : 'none' }}>
+                  <App documentId={tab.documentId} onBack={handleBackToList} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
