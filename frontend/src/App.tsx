@@ -318,18 +318,17 @@ function App({ documentId, onBack }: AppProps) {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to create concept');
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to create concept');
         }
 
         const createdConcept = await response.json();
-
-        // Update local state
         setDocumentConcepts(prev => [...prev, createdConcept]);
         setAllConcepts(prev => [...prev, createdConcept]);
         setNewConceptTitle('');
       } catch (error) {
         console.error('Error creating concept:', error);
-        // You might want to show an error message to the user here
+        alert(error instanceof Error ? error.message : 'Failed to create concept.');
       }
     }
   };
@@ -411,14 +410,15 @@ function App({ documentId, onBack }: AppProps) {
         body: JSON.stringify(activeConcept),
       });
       if (!response.ok) {
-        throw new Error('Failed to update concept comment.');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to update concept comment.');
       }
       const updatedConcept = await response.json();
       setActiveConcept(updatedConcept);
       setDocumentConcepts(prev => prev.map(c => (c.id === updatedConcept.id ? updatedConcept : c)));
     } catch (error) {
       console.error('Error updating concept comment:', error);
-      alert('Error updating concept comment.');
+      alert(error instanceof Error ? error.message : 'Error updating concept comment.');
     }
   };
 
@@ -489,8 +489,7 @@ function App({ documentId, onBack }: AppProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Add these states near other state declarations
-  const [annotations, setAnnotations] = useState<AnnotationBase[]>([]);
-  const [documentMetadata, setDocumentMetadata] = useState<DocumentBase | null>(null);
+  const [documentMetadata, setDocumentMetadata] = useState<Document | null>(null);
 
   // Update the fetchDocument function to properly handle the PDF data
   const fetchDocument = async (documentId: string) => {
@@ -519,9 +518,7 @@ function App({ documentId, onBack }: AppProps) {
       // Handle metadata
       const metadata = await metadataResponse.json();
       setDocumentMetadata(metadata.document);
-      setAnnotations(metadata.annotations);
       setNotes(metadata.annotations);
-      setDocumentConcepts(metadata.concepts);
 
       setIsLoading(false);
     } catch (err) {
@@ -563,11 +560,15 @@ function App({ documentId, onBack }: AppProps) {
     fetchConcepts();
   }, []);
 
-  // Helper function to return a concept's name by matching its id
-  const getConceptName = (conceptId: string) => {
-    const concept = allConcepts.find(c => c.id === conceptId);
-    return concept ? concept.name : conceptId;
-  };
+  // Insert this just before the return statement in your App function:
+  const sortedConcepts = [...allConcepts].sort((a, b) => {
+    // Check if concept has any annotation from the current document
+    const aHas = a.annotation_ids.some(id => notes.some(note => note.id === id));
+    const bHas = b.annotation_ids.some(id => notes.some(note => note.id === id));
+    if (aHas && !bHas) return -1;
+    if (!aHas && bHas) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -727,8 +728,8 @@ function App({ documentId, onBack }: AppProps) {
                       >
                         <div
                           onClick={() => {
-                            if (note.highlightAreas.length > 0) {
-                              highlightPluginInstance.jumpToHighlightArea(note.highlightAreas[0]);
+                            if (note.highlight_areas.length > 0) {
+                              highlightPluginInstance.jumpToHighlightArea(note.highlight_areas[0]);
                             }
                           }}
                           style={{ cursor: 'pointer' }}
@@ -841,27 +842,29 @@ function App({ documentId, onBack }: AppProps) {
                 </PrimaryButton>
               </div>
 
-              {/* List of Concepts */}
+              {/* Concept Selection */}
               <div style={{ marginBottom: '16px' }}>
-                {documentConcepts.length === 0 ? (
-                  <div style={{ textAlign: 'center' }}>No concepts yet</div>
-                ) : (
-                  documentConcepts.map(concept => (
-                    <div
-                      key={concept.id}
-                      onClick={() => handleSelectConcept(concept)}
-                      style={{
-                        border: '1px solid #ccc',
-                        padding: '8px',
-                        marginBottom: '8px',
-                        cursor: 'pointer',
-                        background: activeConcept?.id === concept.id ? '#eef' : 'transparent',
-                      }}
-                    >
-                      <strong>{concept.name}</strong>
-                    </div>
-                  ))
-                )}
+                <select
+                  value={activeConcept ? activeConcept.id : ''}
+                  onChange={e => {
+                    const conceptId = e.target.value;
+                    const concept = allConcepts.find(c => c.id === conceptId);
+                    if (concept) {
+                      handleSelectConcept(concept);
+                    } else {
+                      setActiveConcept(null);
+                    }
+                  }}
+                  style={{ width: '100%' }}
+                  className="custom-input"
+                >
+                  <option value="">Select a concept</option>
+                  {sortedConcepts.map(concept => (
+                    <option key={concept.id} value={concept.id}>
+                      {concept.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Active Concept Details */}

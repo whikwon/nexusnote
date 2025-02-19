@@ -14,6 +14,8 @@ interface PDFListProps {
 export default function PDFList({ activePdfId, onView, setShowList }: PDFListProps) {
   const [pdfList, setPdfList] = useState<PDFItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingPdfId, setEditingPdfId] = useState<string | null>(null);
+  const [editingPdfName, setEditingPdfName] = useState<string>('');
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -77,6 +79,37 @@ export default function PDFList({ activePdfId, onView, setShowList }: PDFListPro
     }
   };
 
+  const startEditing = (id: string, currentName: string) => {
+    setEditingPdfId(id);
+    setEditingPdfName(currentName);
+  };
+
+  const handleRenameSave = async (id: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/document/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: editingPdfName }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to update document');
+      }
+
+      setPdfList(prev =>
+        prev.map(pdf => (pdf.id === id ? { ...pdf, title: editingPdfName } : pdf))
+      );
+      setEditingPdfId(null);
+      setEditingPdfName('');
+    } catch (error) {
+      console.error('Error updating document:', error);
+      alert(
+        error instanceof Error ? error.message : 'Failed to update document. Please try again.'
+      );
+    }
+  };
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files) return;
 
@@ -136,12 +169,74 @@ export default function PDFList({ activePdfId, onView, setShowList }: PDFListPro
         <ul className={cx('pdfList')}>
           {pdfList.map(pdf => (
             <li
-              onClick={() => handleView(pdf.id)}
+              onClick={pdf.id === editingPdfId ? undefined : () => handleView(pdf.id)}
               key={pdf.id}
               className={cx('pdfItem', { active: activePdfId === pdf.id })}
             >
-              <span>{pdf.title}</span>
-              <button onClick={() => handleDelete(pdf.id)}>Delete</button>
+              {editingPdfId === pdf.id ? (
+                <>
+                  <input
+                    type="text"
+                    value={editingPdfName}
+                    onChange={e => setEditingPdfName(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        handleRenameSave(pdf.id);
+                      }
+                      if (e.key === 'Escape') {
+                        setEditingPdfId(null);
+                        setEditingPdfName('');
+                      }
+                    }}
+                    className={cx('renameInput')}
+                  />
+                </>
+              ) : (
+                <span>{pdf.title}</span>
+              )}
+              <div className={cx('actions')}>
+                {editingPdfId === pdf.id ? (
+                  <>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleRenameSave(pdf.id);
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        setEditingPdfId(null);
+                        setEditingPdfName('');
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        startEditing(pdf.id, pdf.title);
+                      }}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleDelete(pdf.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>
