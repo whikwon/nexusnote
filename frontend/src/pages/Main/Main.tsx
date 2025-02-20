@@ -10,7 +10,6 @@ interface PDFTab {
   id: string;
   title: string;
   documentId: string;
-  url: string;
 }
 
 export default function Main() {
@@ -20,7 +19,7 @@ export default function Main() {
 
   const activeDocumentId = openTabs.find(tab => tab.id === activeTabId)?.documentId ?? null;
 
-  const handleViewPDF = (id: string, url: string, title: string) => {
+  const handleViewPDF = (id: string, title: string) => {
     // Check if a tab with the given documentId already exists.
     // If so, reuse it by setting it as active, rather than creating a new tab.
     const existingTab = openTabs.find(tab => tab.documentId === id);
@@ -30,7 +29,6 @@ export default function Main() {
       const newTab: PDFTab = {
         id: crypto.randomUUID(),
         documentId: id,
-        url,
         title,
       };
       setOpenTabs(prev => [...prev, newTab]);
