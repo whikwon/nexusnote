@@ -111,7 +111,7 @@ function App({ documentId, onBack }: AppProps) {
           </div>
         ) : (
           <iframe
-            src={`/pdfjs-4.10.38-dist/web/viewer.html?file=${encodeURIComponent(
+            src={`/pdf.js/web/viewer.html?file=${encodeURIComponent(
               `http://localhost:8000/api/v1/document/${documentId}`
             )}`}
             style={{ width: '100%', height: '100%', border: 'none' }}
